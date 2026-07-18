@@ -1,0 +1,40 @@
+[
+  {
+    "id": "POL-QUOTE-001",
+    "title": "Quotation completeness and arithmetic",
+    "version": "2026-07-demo",
+    "tags": ["quote"],
+    "content": "Required quotation fields must be present and declared totals must match deterministic calculations within the configured tolerance."
+  },
+  {
+    "id": "POL-APPROVAL-001",
+    "title": "Discount approval authority",
+    "version": "2026-07-demo",
+    "tags": ["approval"],
+    "content": "Discounts above ten percent require approval by an authorised human reviewer."
+  },
+  {
+    "id": "POL-SANCTIONS-001",
+    "title": "Restricted-party screening fixture",
+    "version": "2026-07-demo",
+    "tags": ["sanctions"],
+    "content": "Every quotation must be screened against the approved restricted-party source. This Build Week fixture is simulated and is not a live sanctions list.",
+    "data": {
+      "restricted_entities": ["Restricted Entity Example Ltd"]
+    }
+  },
+  {
+    "id": "POL-EXPORT-001",
+    "title": "Foreign-trade and export authorisation",
+    "version": "2026-07-demo",
+    "tags": ["export"],
+    "content": "Controlled goods must not be released without a documented export licence or authorised release. Country and destination restrictions require current authoritative data in production."
+  },
+  {
+    "id": "POL-QUALITY-001",
+    "title": "Batch-pure delivery requirement",
+    "version": "2026-07-demo",
+    "tags": ["quality"],
+    "content": "If batch-pure delivery is contractually required, supplier confirmation must be documented before release. Explicit inability to comply blocks the quotation."
+  }
+]
