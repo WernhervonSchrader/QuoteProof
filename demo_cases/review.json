@@ -1,6 +1,8 @@
 {
   "quote_id": "QP-DEMO-REVIEW",
   "customer": "Acme Manufacturing GmbH",
+  "customer_country": "DE",
+  "destination_country": "CH",
   "currency": "EUR",
   "items": [
     {"sku": "CONSULT-01", "description": "Implementation workshop", "quantity": "2", "unit_price": "1000.00"}
@@ -8,6 +10,8 @@
   "discount_rate": "0.15",
   "net_total": "1700.00",
   "payment_terms": "14 days net",
-  "valid_until": "2026-08-31"
+  "valid_until": "2026-08-31",
+  "controlled_goods": false,
+  "batch_pure_required": true,
+  "batch_pure_confirmed": null
 }
-
