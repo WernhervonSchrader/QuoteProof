@@ -1,6 +1,8 @@
 {
   "quote_id": "QP-DEMO-BLOCKED",
-  "customer": "Acme Manufacturing GmbH",
+  "customer": "Restricted Entity Example Ltd",
+  "customer_country": "AE",
+  "destination_country": "AE",
   "currency": "EUR",
   "items": [
     {"sku": "CONSULT-01", "description": "Implementation workshop", "quantity": "2", "unit_price": "1000.00"}
@@ -8,6 +10,9 @@
   "discount_rate": "0.10",
   "net_total": "1900.00",
   "payment_terms": "14 days net",
-  "valid_until": "2026-08-31"
+  "valid_until": "2026-08-31",
+  "controlled_goods": true,
+  "export_license_id": null,
+  "batch_pure_required": true,
+  "batch_pure_confirmed": false
 }
-
