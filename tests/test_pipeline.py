@@ -15,7 +15,10 @@ def test_pass_scenario() -> None:
 def test_review_scenario() -> None:
     result = QuoteReviewPipeline().run(load_scenario("review"))
     assert result.gate is GateDecision.REQUIRES_HUMAN_REVIEW
-    assert [finding.code for finding in result.findings] == ["QP-DISCOUNT-001"]
+    assert [finding.code for finding in result.findings] == [
+        "QP-DISCOUNT-001",
+        "QP-QUALITY-001",
+    ]
 
 
 def test_blocked_scenario() -> None:
@@ -43,9 +46,27 @@ def test_audit_trail_covers_all_nodes() -> None:
     result = QuoteReviewPipeline().run(load_scenario("pass"))
     assert [event.node for event in result.audit_trail] == [
         "ingest",
+        "retrieve_knowledge",
         "validate",
         "gate",
         "report",
         "report_integrity",
     ]
 
+
+def test_policy_retrieval_is_traceable() -> None:
+    result = QuoteReviewPipeline().run(load_scenario("review"))
+    policy_ids = {policy.id for policy in result.retrieved_policies}
+    assert {"POL-QUOTE-001", "POL-SANCTIONS-001", "POL-EXPORT-001"} <= policy_ids
+    assert all(finding.policy_id in policy_ids for finding in result.findings)
+
+
+def test_simulated_sanctions_match_blocks() -> None:
+    result = QuoteReviewPipeline().run(load_scenario("blocked"))
+    assert result.gate is GateDecision.BLOCKED
+    assert "QP-SANCTIONS-001" in {finding.code for finding in result.findings}
+
+
+def test_missing_export_authorisation_blocks_controlled_goods() -> None:
+    result = QuoteReviewPipeline().run(load_scenario("blocked"))
+    assert "QP-EXPORT-001" in {finding.code for finding in result.findings}
