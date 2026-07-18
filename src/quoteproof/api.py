@@ -93,7 +93,7 @@ def draft_and_review(request: DraftRequest) -> DraftAndReviewResult:
         )
     drafter = OpenAIQuoteDrafter()
     try:
-        quote = drafter.draft(request)
+        drafted = drafter.draft(request)
     except DraftingError as exc:
         raise HTTPException(
             status_code=502,
@@ -112,5 +112,6 @@ def draft_and_review(request: DraftRequest) -> DraftAndReviewResult:
         ) from exc
     return DraftAndReviewResult(
         model=drafter.model,
-        review=pipeline.run(quote),
+        net_total_source=drafted.net_total_source,
+        review=pipeline.run(drafted.quote),
     )

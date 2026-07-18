@@ -46,6 +46,16 @@ The OpenAI adapter can create a schema-validated draft, but it cannot approve
 the quote. Its output always enters the same LangGraph knowledge retrieval and
 deterministic validation pipeline as the prepared scenarios.
 
+## Drafting input contract
+
+The sales request supplies line items, unit prices, and an optional discount.
+When it does not explicitly state a net total, QuoteProof calculates that value
+deterministically before review and returns `net_total_source: "calculated"`.
+When the request explicitly states a net total, QuoteProof preserves it as a
+comparison value and returns `net_total_source: "declared"`; a mismatch with
+the deterministic calculation is blocked. This keeps ordinary quote creation
+separate from intentional arithmetic-tampering tests.
+
 ## Secret boundary
 
 `OPENAI_API_KEY` is read only by the server-side draft endpoint. It must be

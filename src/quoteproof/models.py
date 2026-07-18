@@ -19,6 +19,12 @@ class FindingEffect(str, Enum):
     BLOCK = "BLOCK"
 
 
+class NetTotalSource(str, Enum):
+    DECLARED = "declared"
+    CALCULATED = "calculated"
+    MISSING = "missing"
+
+
 class QuoteItem(BaseModel):
     sku: str
     description: str
@@ -119,9 +125,15 @@ class DraftRequest(BaseModel):
     default_currency: str = "EUR"
 
 
+class DraftingResult(BaseModel):
+    quote: QuoteDraft
+    net_total_source: NetTotalSource
+
+
 class DraftAndReviewResult(BaseModel):
     draft_source: str = "openai"
     model: str
+    net_total_source: NetTotalSource
     review: ReviewResult
 
 
