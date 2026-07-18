@@ -10,6 +10,7 @@ separate from deterministic approval authority.
 
 - three prepared quotation scenarios;
 - deterministic required-field, currency, total, and discount checks;
+- controlled policy retrieval for sanctions, foreign-trade and batch-purity checks;
 - `PASS`, `REQUIRES_HUMAN_REVIEW`, and `BLOCKED` outcomes;
 - report-integrity validation;
 - an audit event for every graph node;
@@ -41,3 +42,9 @@ may proceed.**
 
 Gate 2 will add the OpenAI draft adapter and the small browser demonstration.
 
+## Knowledge-layer boundary
+
+The MVP retrieves versioned policy cards before validation and links every
+finding to a policy ID. The restricted-party data is an explicit simulation
+fixture. QuoteProof does not claim a live EU, UN, US or UK sanctions-list check,
+legal export-control clearance, or production compliance coverage.
