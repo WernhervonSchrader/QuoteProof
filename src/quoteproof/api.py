@@ -1,6 +1,7 @@
 import os
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAIError
 
 from .drafting import DraftingError, OpenAIQuoteDrafter
@@ -10,7 +11,31 @@ from .scenarios import list_scenarios, load_scenario
 
 
 app = FastAPI(title="QuoteProof", version="0.1.0")
+allowed_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "QUOTEPROOF_ALLOWED_ORIGINS",
+        "https://quoteproof-demo.wernhervonschrader.chatgpt.site",
+    ).split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 pipeline = QuoteReviewPipeline()
+
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {
+        "service": "QuoteProof API",
+        "status": "ok",
+        "docs": "/docs",
+    }
 
 
 @app.get("/health")

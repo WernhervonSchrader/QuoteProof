@@ -53,6 +53,17 @@ provided by the deployment runtime or GitHub Actions secret configuration and
 must never use a `NEXT_PUBLIC_` prefix. The deterministic review endpoints work
 without an API key.
 
+## Deploy the API on Vercel
+
+The repository contains a Vercel FastAPI entrypoint and a 60-second function
+limit for governed drafting requests. Import the GitHub repository into Vercel,
+then add `OPENAI_API_KEY` as a **Sensitive** Production environment variable.
+Optionally set `OPENAI_MODEL`; it defaults to `gpt-5.6-terra`.
+
+The default CORS policy permits only the QuoteProof demo origin. Override it
+with a comma-separated `QUOTEPROOF_ALLOWED_ORIGINS` server variable when the
+frontend URL changes.
+
 ## Knowledge-layer boundary
 
 The MVP retrieves versioned policy cards before validation and links every
