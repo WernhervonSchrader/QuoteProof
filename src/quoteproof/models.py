@@ -34,12 +34,18 @@ class QuoteItem(BaseModel):
 class QuoteDraft(BaseModel):
     quote_id: str
     customer: str | None = None
+    customer_country: str | None = None
+    destination_country: str | None = None
     currency: str | None = None
     items: list[QuoteItem] = Field(default_factory=list)
     discount_rate: Decimal = Field(default=Decimal("0"), ge=0, le=1)
     net_total: Decimal | None = None
     payment_terms: str | None = None
     valid_until: str | None = None
+    controlled_goods: bool = False
+    export_license_id: str | None = None
+    batch_pure_required: bool = False
+    batch_pure_confirmed: bool | None = None
 
     def calculated_total(self) -> Decimal:
         subtotal = sum((item.line_total for item in self.items), Decimal("0"))
@@ -60,6 +66,15 @@ class BusinessRules(BaseModel):
     total_tolerance: Decimal = Decimal("0.01")
 
 
+class PolicyDocument(BaseModel):
+    id: str
+    title: str
+    version: str
+    tags: list[str]
+    content: str
+    data: dict[str, object] = Field(default_factory=dict)
+
+
 class Finding(BaseModel):
     code: str
     effect: FindingEffect
@@ -67,6 +82,7 @@ class Finding(BaseModel):
     field: str | None = None
     expected: str | None = None
     actual: str | None = None
+    policy_id: str
 
 
 class AuditEvent(BaseModel):
@@ -91,6 +107,7 @@ class ReviewResult(BaseModel):
     quote: QuoteDraft
     gate: GateDecision
     findings: list[Finding]
+    retrieved_policies: list[PolicyDocument]
     summary: str
     audit_trail: list[AuditEvent]
     report_integrity: bool
@@ -100,8 +117,8 @@ class QuoteState(TypedDict):
     quote: QuoteDraft
     rules: BusinessRules
     findings: list[Finding]
+    retrieved_policies: list[PolicyDocument]
     gate: GateDecision | None
     summary: str
     audit_trail: list[AuditEvent]
     report_integrity: bool
-
