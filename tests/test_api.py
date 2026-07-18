@@ -14,3 +14,14 @@ def test_draft_endpoint_fails_closed_without_server_secret(monkeypatch) -> None:
     assert response.json() == {
         "detail": "Server-side OpenAI drafting is not configured."
     }
+
+
+def test_root_describes_server_without_exposing_configuration() -> None:
+    response = TestClient(app).get("/")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "service": "QuoteProof API",
+        "status": "ok",
+        "docs": "/docs",
+    }
