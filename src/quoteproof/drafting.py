@@ -6,7 +6,7 @@ from typing import Protocol
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from .models import DraftRequest, QuoteDraft
+from .models import DraftingResult, DraftRequest, NetTotalSource, QuoteDraft
 
 
 class DraftingError(RuntimeError):
@@ -59,7 +59,7 @@ class OpenAIQuoteDrafter:
         self.model = model or os.getenv("OPENAI_MODEL", "gpt-5.6-terra")
         self.client = client or OpenAI()
 
-    def draft(self, request: DraftRequest) -> QuoteDraft:
+    def draft(self, request: DraftRequest) -> DraftingResult:
         response = self.client.responses.parse(
             model=self.model,
             input=[
@@ -71,7 +71,10 @@ class OpenAIQuoteDrafter:
                         "and omit incomplete line items. Never decide approval, sanctions, "
                         "export-control, or quality compliance. Preserve the supplied quote "
                         "ID and use the supplied default currency only when no currency is "
-                        "stated. The downstream deterministic controls own every decision."
+                        "stated. Treat net_total as a declared comparison value: copy it only "
+                        "when the request explicitly states a total, otherwise return null. "
+                        "Do not calculate or infer net_total. The downstream deterministic "
+                        "controls own calculations and every decision."
                     ),
                 },
                 {
@@ -91,4 +94,11 @@ class OpenAIQuoteDrafter:
         quote = QuoteDraft.model_validate(generated.model_dump())
         if quote.quote_id != request.quote_id:
             quote = quote.model_copy(update={"quote_id": request.quote_id})
-        return quote
+        if generated.net_total is not None:
+            source = NetTotalSource.DECLARED
+        elif quote.items:
+            quote = quote.model_copy(update={"net_total": quote.calculated_total()})
+            source = NetTotalSource.CALCULATED
+        else:
+            source = NetTotalSource.MISSING
+        return DraftingResult(quote=quote, net_total_source=source)
