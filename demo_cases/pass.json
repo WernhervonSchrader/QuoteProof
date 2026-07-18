@@ -1,0 +1,13 @@
+{
+  "quote_id": "QP-DEMO-PASS",
+  "customer": "Acme Manufacturing GmbH",
+  "currency": "EUR",
+  "items": [
+    {"sku": "CONSULT-01", "description": "Implementation workshop", "quantity": "2", "unit_price": "1000.00"}
+  ],
+  "discount_rate": "0.10",
+  "net_total": "1800.00",
+  "payment_terms": "14 days net",
+  "valid_until": "2026-08-31"
+}
+
