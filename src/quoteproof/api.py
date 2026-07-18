@@ -15,6 +15,7 @@ from openai import (
 from .drafting import DraftingError, OpenAIQuoteDrafter
 from .graph import QuoteReviewPipeline
 from .models import DraftAndReviewResult, DraftRequest, QuoteDraft, ReviewResult
+from .reasoning import OpenAIReasoningAnalyst
 from .scenarios import list_scenarios, load_scenario
 
 
@@ -113,5 +114,7 @@ def draft_and_review(request: DraftRequest) -> DraftAndReviewResult:
     return DraftAndReviewResult(
         model=drafter.model,
         net_total_source=drafted.net_total_source,
-        review=pipeline.run(drafted.quote),
+        review=QuoteReviewPipeline(
+            reasoner=OpenAIReasoningAnalyst(model=drafter.model)
+        ).run(drafted.quote),
     )
