@@ -4,6 +4,7 @@ import os
 from typing import Protocol
 
 from openai import OpenAI
+from pydantic import BaseModel, Field
 
 from .models import DraftRequest, QuoteDraft
 
@@ -17,6 +18,34 @@ class ResponsesClient(Protocol):
         def parse(self, **kwargs): ...
 
     responses: Responses
+
+
+class GeneratedQuoteItem(BaseModel):
+    """Model-facing schema without defaults or Decimal union encodings."""
+
+    sku: str
+    description: str
+    quantity: float = Field(gt=0)
+    unit_price: float = Field(ge=0)
+
+
+class GeneratedQuoteDraft(BaseModel):
+    """Strict structured-output envelope; every field is explicitly required."""
+
+    quote_id: str
+    customer: str | None
+    customer_country: str | None
+    destination_country: str | None
+    currency: str | None
+    items: list[GeneratedQuoteItem]
+    discount_rate: float = Field(ge=0, le=1)
+    net_total: float | None
+    payment_terms: str | None
+    valid_until: str | None
+    controlled_goods: bool
+    export_license_id: str | None
+    batch_pure_required: bool
+    batch_pure_confirmed: bool | None
 
 
 class OpenAIQuoteDrafter:
@@ -54,11 +83,12 @@ class OpenAIQuoteDrafter:
                     ),
                 },
             ],
-            text_format=QuoteDraft,
+            text_format=GeneratedQuoteDraft,
         )
-        quote = response.output_parsed
-        if quote is None:
+        generated = response.output_parsed
+        if generated is None:
             raise DraftingError("The model did not return a valid quotation draft.")
+        quote = QuoteDraft.model_validate(generated.model_dump())
         if quote.quote_id != request.quote_id:
             quote = quote.model_copy(update={"quote_id": request.quote_id})
         return quote
