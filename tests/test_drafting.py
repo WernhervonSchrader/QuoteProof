@@ -2,13 +2,17 @@ from types import SimpleNamespace
 
 import pytest
 
-from quoteproof.drafting import DraftingError, OpenAIQuoteDrafter
+from quoteproof.drafting import (
+    DraftingError,
+    GeneratedQuoteDraft,
+    OpenAIQuoteDrafter,
+)
 from quoteproof.models import DraftRequest, QuoteDraft
 from quoteproof.scenarios import load_scenario
 
 
 class FakeResponses:
-    def __init__(self, output: QuoteDraft | None) -> None:
+    def __init__(self, output: GeneratedQuoteDraft | None) -> None:
         self.output = output
         self.call: dict | None = None
 
@@ -18,7 +22,9 @@ class FakeResponses:
 
 
 def test_openai_draft_is_structured_and_quote_id_is_authoritative() -> None:
-    generated = load_scenario("pass").model_copy(update={"quote_id": "wrong-id"})
+    generated = GeneratedQuoteDraft.model_validate(
+        load_scenario("pass").model_copy(update={"quote_id": "wrong-id"}).model_dump()
+    )
     responses = FakeResponses(generated)
     drafter = OpenAIQuoteDrafter(
         client=SimpleNamespace(responses=responses),
@@ -31,7 +37,7 @@ def test_openai_draft_is_structured_and_quote_id_is_authoritative() -> None:
 
     assert draft.quote_id == "QP-42"
     assert responses.call is not None
-    assert responses.call["text_format"] is QuoteDraft
+    assert responses.call["text_format"] is GeneratedQuoteDraft
     assert responses.call["model"] == "test-model"
 
 
