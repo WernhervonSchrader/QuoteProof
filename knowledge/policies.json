@@ -36,5 +36,12 @@
     "version": "2026-07-demo",
     "tags": ["quality"],
     "content": "If batch-pure delivery is contractually required, supplier confirmation must be documented before release. Explicit inability to comply blocks the quotation."
+  },
+  {
+    "id": "POL-RIF-REASONING-001",
+    "title": "RIF governed reasoning contract",
+    "version": "3.4-rc2-demo",
+    "tags": ["reasoning"],
+    "content": "Reasoning must separate facts, assumptions, constraints, contradictions and uncertainty; cite approved evidence; calibrate confidence; abstain or route to human review when material evidence is insufficient; and never own the release decision."
   }
 ]

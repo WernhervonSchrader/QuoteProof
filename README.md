@@ -46,6 +46,19 @@ The OpenAI adapter can create a schema-validated draft, but it cannot approve
 the quote. Its output always enters the same LangGraph knowledge retrieval and
 deterministic validation pipeline as the prepared scenarios.
 
+## Governed reasoning
+
+Live drafting also produces a concise RIF v3.4 reasoning brief: facts with
+evidence IDs, declared assumptions, hard and soft constraints, contradictions,
+uncertainties, trade-off options, confidence, and an abstention or human-review
+route. This is auditable decision support rather than private chain-of-thought.
+
+A separate deterministic node validates evidence coverage, approved source
+IDs, material assumptions, unresolved contradictions, confidence calibration,
+and abstention. Invalid or unavailable reasoning can only add a human-review
+requirement; it cannot grant `PASS`, remove a blocking finding, or release a
+quotation. The existing deterministic gate remains the sole decision owner.
+
 ## Drafting input contract
 
 The sales request supplies line items, unit prices, and an optional discount.

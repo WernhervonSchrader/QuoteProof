@@ -25,6 +25,38 @@ class NetTotalSource(str, Enum):
     MISSING = "missing"
 
 
+class ReasoningMateriality(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+
+class ReasoningConstraintType(str, Enum):
+    HARD = "hard"
+    SOFT = "soft"
+
+
+class ReasoningConfidence(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+class ReasoningResponse(str, Enum):
+    ANSWER = "answer"
+    PARTIAL_ANSWER = "partial_answer"
+    ABSTAIN = "abstain"
+    HUMAN_REVIEW = "human_review"
+
+
+class ReasoningValidationStatus(str, Enum):
+    NOT_RUN = "NOT_RUN"
+    APPROVED = "APPROVED"
+    REQUIRES_HUMAN_REVIEW = "REQUIRES_HUMAN_REVIEW"
+    FAIL = "FAIL"
+
+
 class QuoteItem(BaseModel):
     sku: str
     description: str
@@ -81,6 +113,64 @@ class PolicyDocument(BaseModel):
     data: dict[str, object] = Field(default_factory=dict)
 
 
+class ReasoningFact(BaseModel):
+    statement: str
+    evidence_ids: list[str]
+    materiality: ReasoningMateriality
+
+
+class ReasoningAssumption(BaseModel):
+    statement: str
+    materiality: ReasoningMateriality
+
+
+class ReasoningConstraint(BaseModel):
+    statement: str
+    constraint_type: ReasoningConstraintType
+    evidence_ids: list[str]
+    satisfied: bool | None
+
+
+class ReasoningContradiction(BaseModel):
+    statement: str
+    evidence_ids: list[str]
+    materiality: ReasoningMateriality
+    resolved: bool
+
+
+class ReasoningUncertainty(BaseModel):
+    statement: str
+    evidence_ids: list[str]
+    materiality: ReasoningMateriality
+
+
+class ReasoningOption(BaseModel):
+    title: str
+    benefit: str
+    sacrifice: str
+    risks: list[str]
+    preconditions: list[str]
+
+
+class ReasoningBrief(BaseModel):
+    mission: str
+    facts: list[ReasoningFact]
+    assumptions: list[ReasoningAssumption]
+    constraints: list[ReasoningConstraint]
+    contradictions: list[ReasoningContradiction]
+    uncertainties: list[ReasoningUncertainty]
+    options: list[ReasoningOption]
+    recommended_next_action: str
+    confidence: ReasoningConfidence
+    required_response: ReasoningResponse
+
+
+class ReasoningValidation(BaseModel):
+    status: ReasoningValidationStatus
+    evidence_coverage: float = Field(ge=0, le=1)
+    issues: list[str]
+
+
 class Finding(BaseModel):
     code: str
     effect: FindingEffect
@@ -117,6 +207,8 @@ class ReviewResult(BaseModel):
     summary: str
     audit_trail: list[AuditEvent]
     report_integrity: bool
+    reasoning_brief: ReasoningBrief | None
+    reasoning_validation: ReasoningValidation
 
 
 class DraftRequest(BaseModel):
@@ -146,3 +238,6 @@ class QuoteState(TypedDict):
     summary: str
     audit_trail: list[AuditEvent]
     report_integrity: bool
+    reasoning_brief: ReasoningBrief | None
+    reasoning_validation: ReasoningValidation
+    reasoning_error: str | None

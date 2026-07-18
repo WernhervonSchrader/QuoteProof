@@ -47,6 +47,8 @@ def test_audit_trail_covers_all_nodes() -> None:
     assert [event.node for event in result.audit_trail] == [
         "ingest",
         "retrieve_knowledge",
+        "reason",
+        "validate_reasoning",
         "validate",
         "gate",
         "report",
