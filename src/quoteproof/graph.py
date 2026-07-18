@@ -1,17 +1,27 @@
 from __future__ import annotations
 
 from langgraph.graph import END, StateGraph
+from openai import OpenAIError
 
 from .models import (
     AuditEvent,
     BusinessRules,
+    Finding,
     FindingEffect,
     GateDecision,
     QuoteDraft,
     QuoteState,
     ReviewResult,
+    ReasoningValidation,
+    ReasoningValidationStatus,
 )
 from .knowledge import retrieve_policies
+from .reasoning import (
+    REASONING_POLICY_ID,
+    ReasoningAnalyst,
+    ReasoningError,
+    validate_reasoning_brief,
+)
 from .validators import (
     validate_currency,
     validate_discount,
@@ -30,8 +40,13 @@ def _event(node: str, action: str, status: str, detail: str = "") -> AuditEvent:
 class QuoteReviewPipeline:
     """LangGraph pipeline in which deterministic validators own routing authority."""
 
-    def __init__(self, rules: BusinessRules | None = None) -> None:
+    def __init__(
+        self,
+        rules: BusinessRules | None = None,
+        reasoner: ReasoningAnalyst | None = None,
+    ) -> None:
         self.rules = rules or BusinessRules()
+        self.reasoner = reasoner
         self.graph = self._build()
 
     def ingest(self, state: QuoteState) -> dict:
@@ -52,9 +67,87 @@ class QuoteReviewPipeline:
         ]
         return {"retrieved_policies": policies, "audit_trail": audit}
 
+    def reason(self, state: QuoteState) -> dict:
+        if self.reasoner is None:
+            audit = state["audit_trail"] + [
+                _event("reason", "generate_governed_reasoning_brief", "SKIPPED", "not_configured")
+            ]
+            return {"audit_trail": audit}
+        try:
+            brief = self.reasoner.analyse(
+                state["quote"],
+                state["retrieved_policies"],
+            )
+        except (OpenAIError, ReasoningError):
+            audit = state["audit_trail"] + [
+                _event(
+                    "reason",
+                    "generate_governed_reasoning_brief",
+                    "FAIL",
+                    "reasoning_unavailable",
+                )
+            ]
+            return {
+                "reasoning_error": "reasoning_unavailable",
+                "audit_trail": audit,
+            }
+        audit = state["audit_trail"] + [
+            _event(
+                "reason",
+                "generate_governed_reasoning_brief",
+                "OK",
+                f"{len(brief.facts)} facts",
+            )
+        ]
+        return {"reasoning_brief": brief, "audit_trail": audit}
+
+    def validate_reasoning(self, state: QuoteState) -> dict:
+        if state["reasoning_brief"] is not None:
+            validation, findings = validate_reasoning_brief(
+                state["reasoning_brief"],
+                state["quote"],
+                state["retrieved_policies"],
+            )
+        elif state["reasoning_error"]:
+            validation = ReasoningValidation(
+                status=ReasoningValidationStatus.REQUIRES_HUMAN_REVIEW,
+                evidence_coverage=0,
+                issues=["Governed reasoning was unavailable; human review is required."],
+            )
+            findings = [
+                Finding(
+                    code="QP-REASON-UNAVAILABLE-001",
+                    effect=FindingEffect.REVIEW,
+                    message="Governed reasoning was unavailable; human review is required.",
+                    field="reasoning_brief",
+                    policy_id=REASONING_POLICY_ID,
+                )
+            ]
+        else:
+            validation = ReasoningValidation(
+                status=ReasoningValidationStatus.NOT_RUN,
+                evidence_coverage=0,
+                issues=[],
+            )
+            findings = []
+        audit = state["audit_trail"] + [
+            _event(
+                "validate_reasoning",
+                "validate_evidence_constraints_and_confidence",
+                "FAIL" if findings else "OK",
+                validation.status.value,
+            )
+        ]
+        return {
+            "reasoning_validation": validation,
+            "findings": findings,
+            "audit_trail": audit,
+        }
+
     def validate(self, state: QuoteState) -> dict:
         quote, rules = state["quote"], state["rules"]
         findings = [
+            *state["findings"],
             *validate_required_fields(quote, rules),
             *validate_currency(quote, rules),
             *validate_total(quote, rules),
@@ -122,13 +215,17 @@ class QuoteReviewPipeline:
         graph = StateGraph(QuoteState)
         graph.add_node("ingest", self.ingest)
         graph.add_node("retrieve_knowledge", self.retrieve_knowledge)
+        graph.add_node("reason", self.reason)
+        graph.add_node("validate_reasoning", self.validate_reasoning)
         graph.add_node("validate", self.validate)
         graph.add_node("gate", self.decide_gate)
         graph.add_node("report", self.generate_report)
         graph.add_node("report_integrity", self.validate_report_integrity)
         graph.set_entry_point("ingest")
         graph.add_edge("ingest", "retrieve_knowledge")
-        graph.add_edge("retrieve_knowledge", "validate")
+        graph.add_edge("retrieve_knowledge", "reason")
+        graph.add_edge("reason", "validate_reasoning")
+        graph.add_edge("validate_reasoning", "validate")
         graph.add_edge("validate", "gate")
         graph.add_edge("gate", "report")
         graph.add_edge("report", "report_integrity")
@@ -145,6 +242,13 @@ class QuoteReviewPipeline:
             "summary": "",
             "audit_trail": [],
             "report_integrity": False,
+            "reasoning_brief": None,
+            "reasoning_validation": ReasoningValidation(
+                status=ReasoningValidationStatus.NOT_RUN,
+                evidence_coverage=0,
+                issues=[],
+            ),
+            "reasoning_error": None,
         }
         result = self.graph.invoke(initial)
         return ReviewResult.model_validate(result)
