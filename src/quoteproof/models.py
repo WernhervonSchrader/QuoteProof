@@ -113,6 +113,18 @@ class ReviewResult(BaseModel):
     report_integrity: bool
 
 
+class DraftRequest(BaseModel):
+    quote_id: str
+    request_text: str = Field(min_length=1, max_length=12_000)
+    default_currency: str = "EUR"
+
+
+class DraftAndReviewResult(BaseModel):
+    draft_source: str = "openai"
+    model: str
+    review: ReviewResult
+
+
 class QuoteState(TypedDict):
     quote: QuoteDraft
     rules: BusinessRules
