@@ -15,6 +15,7 @@ separate from deterministic approval authority.
 - report-integrity validation;
 - an audit event for every graph node;
 - FastAPI endpoints and repeatable tests.
+- optional server-side OpenAI structured drafting through the Responses API.
 
 The current Gate 1 implementation deliberately does **not** claim complete RIF
 or RRS conformance, general hallucination prevention, or production readiness.
@@ -34,13 +35,23 @@ Open `http://127.0.0.1:8000/docs` and run one of:
 - `POST /review/pass`
 - `POST /review/review`
 - `POST /review/blocked`
+- `POST /draft-and-review` (requires the server-side `OPENAI_API_KEY` secret)
 
 ## Core rule
 
 **The model may generate the draft. Deterministic controls decide whether it
 may proceed.**
 
-Gate 2 will add the OpenAI draft adapter and the small browser demonstration.
+The OpenAI adapter can create a schema-validated draft, but it cannot approve
+the quote. Its output always enters the same LangGraph knowledge retrieval and
+deterministic validation pipeline as the prepared scenarios.
+
+## Secret boundary
+
+`OPENAI_API_KEY` is read only by the server-side draft endpoint. It must be
+provided by the deployment runtime or GitHub Actions secret configuration and
+must never use a `NEXT_PUBLIC_` prefix. The deterministic review endpoints work
+without an API key.
 
 ## Knowledge-layer boundary
 

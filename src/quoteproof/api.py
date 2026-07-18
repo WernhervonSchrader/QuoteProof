@@ -1,7 +1,11 @@
-from fastapi import FastAPI, HTTPException
+import os
 
+from fastapi import FastAPI, HTTPException
+from openai import OpenAIError
+
+from .drafting import DraftingError, OpenAIQuoteDrafter
 from .graph import QuoteReviewPipeline
-from .models import QuoteDraft, ReviewResult
+from .models import DraftAndReviewResult, DraftRequest, QuoteDraft, ReviewResult
 from .scenarios import list_scenarios, load_scenario
 
 
@@ -32,3 +36,23 @@ def review_scenario(scenario: str) -> ReviewResult:
         raise HTTPException(status_code=404, detail="Unknown scenario") from exc
     return pipeline.run(quote)
 
+
+@app.post("/draft-and-review", response_model=DraftAndReviewResult)
+def draft_and_review(request: DraftRequest) -> DraftAndReviewResult:
+    if not os.getenv("OPENAI_API_KEY"):
+        raise HTTPException(
+            status_code=503,
+            detail="Server-side OpenAI drafting is not configured.",
+        )
+    drafter = OpenAIQuoteDrafter()
+    try:
+        quote = drafter.draft(request)
+    except (DraftingError, OpenAIError) as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="The draft could not be generated safely.",
+        ) from exc
+    return DraftAndReviewResult(
+        model=drafter.model,
+        review=pipeline.run(quote),
+    )
