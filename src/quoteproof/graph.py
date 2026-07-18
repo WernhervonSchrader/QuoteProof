@@ -11,10 +11,14 @@ from .models import (
     QuoteState,
     ReviewResult,
 )
+from .knowledge import retrieve_policies
 from .validators import (
     validate_currency,
     validate_discount,
     validate_required_fields,
+    validate_sanctions,
+    validate_export_control,
+    validate_batch_purity,
     validate_total,
 )
 
@@ -36,6 +40,18 @@ class QuoteReviewPipeline:
         ]
         return {"audit_trail": audit}
 
+    def retrieve_knowledge(self, state: QuoteState) -> dict:
+        policies = retrieve_policies(state["quote"])
+        audit = state["audit_trail"] + [
+            _event(
+                "retrieve_knowledge",
+                "retrieve_approved_policy_cards",
+                "OK" if policies else "FAIL",
+                ",".join(policy.id for policy in policies) or "no_policy",
+            )
+        ]
+        return {"retrieved_policies": policies, "audit_trail": audit}
+
     def validate(self, state: QuoteState) -> dict:
         quote, rules = state["quote"], state["rules"]
         findings = [
@@ -43,6 +59,9 @@ class QuoteReviewPipeline:
             *validate_currency(quote, rules),
             *validate_total(quote, rules),
             *validate_discount(quote, rules),
+            *validate_sanctions(quote, state["retrieved_policies"]),
+            *validate_export_control(quote),
+            *validate_batch_purity(quote),
         ]
         audit = state["audit_trail"] + [
             _event(
@@ -102,12 +121,14 @@ class QuoteReviewPipeline:
     def _build(self):
         graph = StateGraph(QuoteState)
         graph.add_node("ingest", self.ingest)
+        graph.add_node("retrieve_knowledge", self.retrieve_knowledge)
         graph.add_node("validate", self.validate)
         graph.add_node("gate", self.decide_gate)
         graph.add_node("report", self.generate_report)
         graph.add_node("report_integrity", self.validate_report_integrity)
         graph.set_entry_point("ingest")
-        graph.add_edge("ingest", "validate")
+        graph.add_edge("ingest", "retrieve_knowledge")
+        graph.add_edge("retrieve_knowledge", "validate")
         graph.add_edge("validate", "gate")
         graph.add_edge("gate", "report")
         graph.add_edge("report", "report_integrity")
@@ -119,6 +140,7 @@ class QuoteReviewPipeline:
             "quote": quote,
             "rules": self.rules,
             "findings": [],
+            "retrieved_policies": [],
             "gate": None,
             "summary": "",
             "audit_trail": [],
@@ -126,4 +148,3 @@ class QuoteReviewPipeline:
         }
         result = self.graph.invoke(initial)
         return ReviewResult.model_validate(result)
-
