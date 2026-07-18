@@ -20,7 +20,7 @@ def retrieve_policies(quote: QuoteDraft) -> list[PolicyDocument]:
     This Gate 2 retriever is deterministic and local. It is intentionally not
     presented as a live sanctions or export-control data connection.
     """
-    required_tags = {"quote", "sanctions"}
+    required_tags = {"quote", "sanctions", "reasoning"}
     if quote.discount_rate > 0:
         required_tags.add("approval")
     if quote.controlled_goods or quote.destination_country != quote.customer_country:
@@ -32,4 +32,3 @@ def retrieve_policies(quote: QuoteDraft) -> list[PolicyDocument]:
         for policy in load_policy_pack()
         if required_tags.intersection(policy.tags)
     ]
-
