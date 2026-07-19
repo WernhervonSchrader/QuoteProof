@@ -76,6 +76,12 @@ provided by the deployment runtime or GitHub Actions secret configuration and
 must never use a `NEXT_PUBLIC_` prefix. The deterministic review endpoints work
 without an API key.
 
+The live endpoint additionally requires the disposable request header
+`X-QuoteProof-Demo-Key`, validated against the server-side
+`QUOTEPROOF_DEMO_KEY` secret. This shared jury code protects API budget without
+requiring an OpenAI login. It is not embedded in the frontend, and the prepared
+deterministic scenarios remain public.
+
 ## Deploy the API on Vercel
 
 The repository contains a Vercel FastAPI entrypoint and a 60-second function

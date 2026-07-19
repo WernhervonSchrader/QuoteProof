@@ -1,6 +1,7 @@
+import hmac
 import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from openai import (
     APIConnectionError,
@@ -33,9 +34,25 @@ app.add_middleware(
     allow_origins=allowed_origins,
     allow_credentials=False,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-QuoteProof-Demo-Key"],
 )
 pipeline = QuoteReviewPipeline()
+
+
+def _require_demo_access(access_code: str | None) -> None:
+    """Fail closed unless the disposable jury code matches the server secret."""
+
+    expected = os.getenv("QUOTEPROOF_DEMO_KEY")
+    if expected is None or len(expected) < 12:
+        raise HTTPException(
+            status_code=503,
+            detail="Server-side jury access is not configured.",
+        )
+    if access_code is None or not hmac.compare_digest(access_code, expected):
+        raise HTTPException(
+            status_code=401,
+            detail="Jury access code is missing or invalid.",
+        )
 
 
 def _safe_provider_error_code(exc: OpenAIError) -> str:
@@ -86,7 +103,14 @@ def review_scenario(scenario: str) -> ReviewResult:
 
 
 @app.post("/draft-and-review", response_model=DraftAndReviewResult)
-def draft_and_review(request: DraftRequest) -> DraftAndReviewResult:
+def draft_and_review(
+    request: DraftRequest,
+    demo_access_code: str | None = Header(
+        default=None,
+        alias="X-QuoteProof-Demo-Key",
+    ),
+) -> DraftAndReviewResult:
+    _require_demo_access(demo_access_code)
     if not os.getenv("OPENAI_API_KEY"):
         raise HTTPException(
             status_code=503,

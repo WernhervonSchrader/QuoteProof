@@ -27,3 +27,15 @@ and has the expected prefix. It never prints the value and makes no API request.
 A GitHub Actions secret is not automatically available to a browser or to an
 unrelated hosting platform. A deployment workflow must pass it directly into
 the server-side runtime. Never rename it with a `NEXT_PUBLIC_` prefix.
+
+## Disposable jury access
+
+The live `POST /draft-and-review` endpoint also requires the request header
+`X-QuoteProof-Demo-Key`. The API validates it in constant time against the
+server-side `QUOTEPROOF_DEMO_KEY` environment secret before creating an OpenAI
+client. Use a random value of at least 12 characters.
+
+This is a disposable competition credential, not an OpenAI account or API key.
+It may be shared with judges, rotated after the judging period, and must never
+be committed to this repository or embedded in browser source. Prepared
+deterministic scenarios remain available without this credential.
