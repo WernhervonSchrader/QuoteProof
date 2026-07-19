@@ -99,3 +99,16 @@ The MVP retrieves versioned policy cards before validation and links every
 finding to a policy ID. The restricted-party data is an explicit simulation
 fixture. QuoteProof does not claim a live EU, UN, US or UK sanctions-list check,
 legal export-control clearance, or production compliance coverage.
+
+## RIF governance in detail
+
+The RIF contribution is documented in
+[docs/RIF_GOVERNANCE.md](docs/RIF_GOVERNANCE.md). It explains how QuoteProof
+turns model reasoning into evidence-linked, validated decision support without
+giving the model release authority.
+
+The short version: OpenAI drafts, policy RAG supplies versioned evidence, RIF
+checks facts, assumptions, constraints, contradictions, uncertainty and
+confidence, and deterministic controls alone produce PASS, REQUIRES HUMAN
+REVIEW or BLOCKED.
+
