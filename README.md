@@ -112,3 +112,27 @@ checks facts, assumptions, constraints, contradictions, uncertainty and
 confidence, and deterministic controls alone produce PASS, REQUIRES HUMAN
 REVIEW or BLOCKED.
 
+## How Codex and GPT-5.6 were used
+
+Codex was used as the implementation agent for QuoteProof: it shaped the
+FastAPI and LangGraph workflow, implemented the English demo UI, connected the
+server-side OpenAI path, added the RIF reasoning-governance layer, wrote
+regression tests, and deployed the public demo.
+
+GPT-5.6 is used at runtime only for the probabilistic drafting and reasoning
+brief. It extracts a structured quotation from the sales request and proposes
+facts, assumptions, constraints, contradictions, uncertainties and options.
+That output is then validated by RIF and passed to deterministic controls.
+GPT-5.6 never has release authority: only the deterministic gate can return
+PASS, REQUIRES HUMAN REVIEW or BLOCKED.
+
+### Judge path
+
+1. Open the public demo.
+2. Enter the jury access code supplied in the Devpost submission.
+3. Choose a prepared PASS, HUMAN REVIEW or BLOCKED scenario, or enter a live
+   sales request.
+4. For the live path, enter the access code and select **Generate AI draft**.
+5. Inspect the structured quote, RIF Reasoning Brief, control findings and
+   eight-step audit trail.
+
