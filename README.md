@@ -1,24 +1,145 @@
 # QuoteProof
 
-> AI-generated offers you can actually approve.
+> **AI-generated quotations you can actually approve.**
 
-QuoteProof is a Build Week MVP that demonstrates a governed review process for
-AI-assisted quotations. A LangGraph workflow keeps drafting and explanation
-separate from deterministic approval authority.
+**QuoteProof is not another AI quote generator. It is a proof and governance layer for AI-assisted commercial decisions.**
+
+A normal language model can create a polished quotation while silently carrying forward a wrong total, an unsupported assumption, a missing approval, or a compliance conflict. QuoteProof lets GPT-5.6 draft and analyse the request, but it does not let the model approve its own work.
+
+**GPT-5.6 generates. RIF challenges. Deterministic controls decide.**
+
+[Open the live demo](https://quoteproof-demo.wernhervonschrader.chatgpt.site)
+
+## The problem it solves
+
+An AI-generated offer may look complete and still create financial, contractual, compliance, or reputational damage. RAG alone does not solve this: retrieving a policy does not prove that the model used it correctly, surfaced every material uncertainty, or respected the final decision boundary.
+
+QuoteProof therefore separates three responsibilities that are often collapsed into one model call:
+
+| Responsibility | Owner | Authority |
+| --- | --- | --- |
+| Draft a structured quotation | GPT-5.6 | May propose |
+| Explain facts, assumptions, constraints, contradictions, uncertainty, and options | GPT-5.6 + RIF contract | Advisory only |
+| Validate evidence and apply commercial controls | Deterministic code | Sole release authority |
+
+The result is one of three explicit outcomes:
+
+- **PASS** — all configured controls passed;
+- **REQUIRES HUMAN REVIEW** — a material uncertainty or approval requirement needs an authorised person;
+- **BLOCKED** — at least one hard control failed.
+
+A review finding can never override a blocking finding, and model output can never grant PASS.
+
+## What happens in a real run
+
+A user enters a sales request in natural language. QuoteProof then:
+
+1. asks GPT-5.6 for a schema-validated quotation draft;
+2. calculates financial totals deterministically instead of trusting generated arithmetic;
+3. retrieves approved, versioned policy cards;
+4. creates a compact, evidence-linked RIF Reasoning Brief;
+5. validates the model's evidence coverage, assumptions, contradictions, uncertainty, confidence, and abstention route;
+6. runs deterministic quotation, discount, sanctions-fixture, export, and delivery-quality controls;
+7. applies fail-closed precedence: **BLOCKED > HUMAN REVIEW > PASS**;
+8. renders the report from validated state and checks that its prose matches the structured decision.
+
+Every stage emits an audit event.
+
+### Example: why the RIF layer matters
+
+In a live test, GPT-5.6 correctly drafted ten units at EUR 250 with a five-percent discount and QuoteProof calculated the EUR 2,375 net total. The model nevertheless assigned high confidence while material screening evidence remained incomplete.
+
+The RIF validator detected that the confidence exceeded the available evidence strength and routed the quotation to **REQUIRES HUMAN REVIEW**. The model produced useful reasoning, but it could not approve its own confidence.
+
+In the restricted-party and controlled-goods scenario, the same pipeline returned **BLOCKED**. The softer reasoning-review finding could not weaken the sanctions and export-control blocks.
+
+## Why this is different from “LLM + RAG”
+
+| Conventional pattern | QuoteProof |
+| --- | --- |
+| Retrieved text is inserted into a prompt | Retrieved policy cards have IDs and versions |
+| The model explains its own answer | A separate validator checks the reasoning contract |
+| Confidence is accepted as generated | Confidence is checked against evidence coverage |
+| Prose becomes the decision | Structured state is authoritative |
+| The model can effectively approve its own output | Deterministic controls alone own release authority |
+| Failures may degrade silently | Missing or invalid reasoning fails closed to human review |
+| Audit is added afterwards | Every graph node emits an audit event |
+
+This is auditable decision support, not private chain-of-thought. QuoteProof stores the reviewable decision record needed by a user, authorised reviewer, or auditor.
+
+## Judge path — about two minutes
+
+The prepared scenarios are public and require no OpenAI call.
+
+1. Open the [live demo](https://quoteproof-demo.wernhervonschrader.chatgpt.site).
+2. Select **PASS**, **HUMAN REVIEW**, and **BLOCKED**.
+3. Compare the findings, policy evidence, gate precedence, and eight-step audit trail.
+4. Enter the jury access code supplied privately in the Devpost testing instructions.
+5. Select **Generate AI draft** to run the live GPT-5.6 path.
+6. Inspect the structured quote, RIF Reasoning Brief, reasoning validation, deterministic findings, and final decision.
+
+## Architecture
+
+```text
+Sales request
+    ↓
+GPT-5.6 structured draft
+    ↓
+Deterministic total calculation
+    ↓
+Versioned policy retrieval
+    ↓
+RIF evidence-linked reasoning brief
+    ↓
+RIF contract validation
+    ↓
+Deterministic commercial controls
+    ↓
+PASS · REQUIRES HUMAN REVIEW · BLOCKED
+    ↓
+Report-integrity check + audit trail
+```
+
+The implementation uses the OpenAI Responses API, FastAPI, Pydantic, LangGraph, TypeScript, and React.
 
 ## Gate 1 scope
 
-- three prepared quotation scenarios;
-- deterministic required-field, currency, total, and discount checks;
-- controlled policy retrieval for sanctions, foreign-trade and batch-purity checks;
-- `PASS`, `REQUIRES_HUMAN_REVIEW`, and `BLOCKED` outcomes;
-- report-integrity validation;
-- an audit event for every graph node;
-- FastAPI endpoints and repeatable tests.
-- optional server-side OpenAI structured drafting through the Responses API.
+The Build Week MVP includes:
 
-The current Gate 1 implementation deliberately does **not** claim complete RIF
-or RRS conformance, general hallucination prevention, or production readiness.
+- three prepared quotation scenarios;
+- optional live server-side GPT-5.6 drafting;
+- deterministic required-field, currency, arithmetic, and discount checks;
+- controlled policy retrieval for simulated sanctions, foreign-trade, and batch-purity checks;
+- evidence-linked governed reasoning;
+- fail-closed reasoning validation;
+- explicit PASS, REQUIRES HUMAN REVIEW, and BLOCKED outcomes;
+- report-integrity validation;
+- an eight-event audit trail;
+- repeatable API and regression tests.
+
+## Drafting and arithmetic contract
+
+The sales request supplies line items, unit prices, and an optional discount.
+
+If it does not state a net total, QuoteProof calculates the value deterministically and returns `net_total_source: "calculated"`. If the request explicitly states a total, QuoteProof preserves it as comparison evidence and returns `net_total_source: "declared"`. A mismatch with the deterministic calculation is blocked.
+
+This separates normal quotation creation from intentional arithmetic-tampering tests.
+
+## How Codex and GPT-5.6 were used
+
+QuoteProof was built during OpenAI Build Week with Codex as the implementation agent. Codex helped:
+
+- translate the product idea into the FastAPI and LangGraph architecture;
+- implement the English demo UI and server-side OpenAI integration;
+- add the RIF reasoning-governance layer;
+- diagnose and repair the net-total contract;
+- harden schema validation, secret handling, CORS, and fail-closed errors;
+- write regression tests and prepare the deployment;
+- document the boundary between model reasoning and release authority.
+
+The product and governance decisions remained human-owned: the model must not approve itself, JSON state is authoritative, hard blocks take precedence, and simulated compliance data must never be presented as production clearance.
+
+GPT-5.6 is used at runtime only for probabilistic drafting and the advisory Reasoning Brief. It identifies facts, assumptions, constraints, contradictions, uncertainties, options, and a recommended next action. RIF validates that output before deterministic controls make the final decision.
 
 ## Run locally
 
@@ -30,109 +151,31 @@ pytest
 uvicorn quoteproof.api:app --reload
 ```
 
-Open `http://127.0.0.1:8000/docs` and run one of:
+Open `http://127.0.0.1:8000/docs` and run:
 
 - `POST /review/pass`
 - `POST /review/review`
 - `POST /review/blocked`
-- `POST /draft-and-review` (requires the server-side `OPENAI_API_KEY` secret)
+- `POST /draft-and-review` — requires server-side `OPENAI_API_KEY` and `QUOTEPROOF_DEMO_KEY`
 
-## Core rule
+## Security boundary
 
-**The model may generate the draft. Deterministic controls decide whether it
-may proceed.**
+`OPENAI_API_KEY` is read only by the server-side draft endpoint and must never use a `NEXT_PUBLIC_` prefix.
 
-The OpenAI adapter can create a schema-validated draft, but it cannot approve
-the quote. Its output always enters the same LangGraph knowledge retrieval and
-deterministic validation pipeline as the prepared scenarios.
+The live endpoint additionally requires `X-QuoteProof-Demo-Key`, validated against the server-side `QUOTEPROOF_DEMO_KEY`. The disposable jury code is supplied privately, is not embedded in the frontend, and protects API budget without requiring an OpenAI login. Prepared deterministic scenarios remain public.
 
-## Governed reasoning
+The default CORS policy permits only the QuoteProof demo origin.
 
-Live drafting also produces a concise RIF v3.4 reasoning brief: facts with
-evidence IDs, declared assumptions, hard and soft constraints, contradictions,
-uncertainties, trade-off options, confidence, and an abstention or human-review
-route. This is auditable decision support rather than private chain-of-thought.
+## Scope and limitations
 
-A separate deterministic node validates evidence coverage, approved source
-IDs, material assumptions, unresolved contradictions, confidence calibration,
-and abstention. Invalid or unavailable reasoning can only add a human-review
-requirement; it cannot grant `PASS`, remove a blocking finding, or release a
-quotation. The existing deterministic gate remains the sole decision owner.
+QuoteProof is a focused Build Week MVP. It deliberately does **not** claim:
 
-## Drafting input contract
+- live EU, UN, US, or UK sanctions-list screening;
+- legal export-control clearance;
+- general hallucination prevention;
+- complete RIF or RRS conformance;
+- production certification or readiness.
 
-The sales request supplies line items, unit prices, and an optional discount.
-When it does not explicitly state a net total, QuoteProof calculates that value
-deterministically before review and returns `net_total_source: "calculated"`.
-When the request explicitly states a net total, QuoteProof preserves it as a
-comparison value and returns `net_total_source: "declared"`; a mismatch with
-the deterministic calculation is blocked. This keeps ordinary quote creation
-separate from intentional arithmetic-tampering tests.
+Restricted-party data is an explicit simulation fixture. These boundaries are part of the product: a reliable system must make clear not only what it knows, but also what it cannot safely decide.
 
-## Secret boundary
-
-`OPENAI_API_KEY` is read only by the server-side draft endpoint. It must be
-provided by the deployment runtime or GitHub Actions secret configuration and
-must never use a `NEXT_PUBLIC_` prefix. The deterministic review endpoints work
-without an API key.
-
-The live endpoint additionally requires the disposable request header
-`X-QuoteProof-Demo-Key`, validated against the server-side
-`QUOTEPROOF_DEMO_KEY` secret. This shared jury code protects API budget without
-requiring an OpenAI login. It is not embedded in the frontend, and the prepared
-deterministic scenarios remain public.
-
-## Deploy the API on Vercel
-
-The repository contains a Vercel FastAPI entrypoint and a 60-second function
-limit for governed drafting requests. Import the GitHub repository into Vercel,
-then add `OPENAI_API_KEY` as a **Sensitive** Production environment variable.
-Optionally set `OPENAI_MODEL`; it defaults to `gpt-5.6-terra`.
-
-The default CORS policy permits only the QuoteProof demo origin. Override it
-with a comma-separated `QUOTEPROOF_ALLOWED_ORIGINS` server variable when the
-frontend URL changes.
-
-## Knowledge-layer boundary
-
-The MVP retrieves versioned policy cards before validation and links every
-finding to a policy ID. The restricted-party data is an explicit simulation
-fixture. QuoteProof does not claim a live EU, UN, US or UK sanctions-list check,
-legal export-control clearance, or production compliance coverage.
-
-## RIF governance in detail
-
-The RIF contribution is documented in
-[docs/RIF_GOVERNANCE.md](docs/RIF_GOVERNANCE.md). It explains how QuoteProof
-turns model reasoning into evidence-linked, validated decision support without
-giving the model release authority.
-
-The short version: OpenAI drafts, policy RAG supplies versioned evidence, RIF
-checks facts, assumptions, constraints, contradictions, uncertainty and
-confidence, and deterministic controls alone produce PASS, REQUIRES HUMAN
-REVIEW or BLOCKED.
-
-## How Codex and GPT-5.6 were used
-
-Codex was used as the implementation agent for QuoteProof: it shaped the
-FastAPI and LangGraph workflow, implemented the English demo UI, connected the
-server-side OpenAI path, added the RIF reasoning-governance layer, wrote
-regression tests, and deployed the public demo.
-
-GPT-5.6 is used at runtime only for the probabilistic drafting and reasoning
-brief. It extracts a structured quotation from the sales request and proposes
-facts, assumptions, constraints, contradictions, uncertainties and options.
-That output is then validated by RIF and passed to deterministic controls.
-GPT-5.6 never has release authority: only the deterministic gate can return
-PASS, REQUIRES HUMAN REVIEW or BLOCKED.
-
-### Judge path
-
-1. Open the public demo.
-2. Enter the jury access code supplied in the Devpost submission.
-3. Choose a prepared PASS, HUMAN REVIEW or BLOCKED scenario, or enter a live
-   sales request.
-4. For the live path, enter the access code and select **Generate AI draft**.
-5. Inspect the structured quote, RIF Reasoning Brief, control findings and
-   eight-step audit trail.
-
+For the detailed governance rationale, see [RIF_GOVERNANCE.md](docs/RIF_GOVERNANCE.md).
