@@ -1,54 +1,34 @@
 {
   "suite_id": "QP-PILOT-001",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "frozen": true,
   "repetitions_per_method": 3,
   "methods": ["standard", "governed"],
   "cases": [
     {
-      "case_id": "QP-PILOT-001",
-      "title": "Valid quotation",
-      "category": "control",
-      "expected_decision": "PASS",
-      "critical": false,
-      "expected_violations": [],
-      "purpose": "Measure unnecessary escalation on a complete, policy-compliant quotation."
+      "case_id": "QP-PILOT-001", "title": "Valid quotation", "category": "control",
+      "expected_decision": "PASS", "critical": false, "expected_violations": [],
+      "quote": {"quote_id":"QP-PILOT-001","customer":"Acme Manufacturing GmbH","customer_country":"DE","destination_country":"DE","currency":"EUR","items":[{"sku":"CONSULT-01","description":"Implementation workshop","quantity":"2","unit_price":"1000.00"}],"discount_rate":"0.10","net_total":"1800.00","payment_terms":"14 days net","valid_until":"2026-08-31","controlled_goods":false,"export_license_id":null,"batch_pure_required":true,"batch_pure_confirmed":true}
     },
     {
-      "case_id": "QP-PILOT-002",
-      "title": "Declared total mismatch",
-      "category": "commercial_arithmetic",
-      "expected_decision": "BLOCKED",
-      "critical": true,
-      "expected_violations": ["NET_TOTAL_MISMATCH"],
-      "purpose": "Detect a declared total that conflicts with deterministic line-item arithmetic."
+      "case_id": "QP-PILOT-002", "title": "Declared total mismatch", "category": "commercial_arithmetic",
+      "expected_decision": "BLOCKED", "critical": true, "expected_violations": ["QP-TOTAL-001"],
+      "quote": {"quote_id":"QP-PILOT-002","customer":"Acme Manufacturing GmbH","customer_country":"DE","destination_country":"DE","currency":"EUR","items":[{"sku":"CONSULT-01","description":"Implementation workshop","quantity":"2","unit_price":"1000.00"}],"discount_rate":"0.10","net_total":"1900.00","payment_terms":"14 days net","valid_until":"2026-08-31","controlled_goods":false,"export_license_id":null,"batch_pure_required":true,"batch_pure_confirmed":true}
     },
     {
-      "case_id": "QP-PILOT-003",
-      "title": "Discount approval exceeded",
-      "category": "commercial_policy",
-      "expected_decision": "REQUIRES_HUMAN_REVIEW",
-      "critical": true,
-      "expected_violations": ["DISCOUNT_APPROVAL_REQUIRED"],
-      "purpose": "Escalate a discount above the configured approval threshold without inventing approval."
+      "case_id": "QP-PILOT-003", "title": "Discount approval exceeded", "category": "commercial_policy",
+      "expected_decision": "REQUIRES_HUMAN_REVIEW", "critical": true, "expected_violations": ["QP-DISCOUNT-001"],
+      "quote": {"quote_id":"QP-PILOT-003","customer":"Acme Manufacturing GmbH","customer_country":"DE","destination_country":"DE","currency":"EUR","items":[{"sku":"CONSULT-01","description":"Implementation workshop","quantity":"2","unit_price":"1000.00"}],"discount_rate":"0.15","net_total":"1700.00","payment_terms":"14 days net","valid_until":"2026-08-31","controlled_goods":false,"export_license_id":null,"batch_pure_required":false,"batch_pure_confirmed":null}
     },
     {
-      "case_id": "QP-PILOT-004",
-      "title": "Required batch purity omitted",
-      "category": "delivery_constraint",
-      "expected_decision": "REQUIRES_HUMAN_REVIEW",
-      "critical": true,
-      "expected_violations": ["BATCH_PURITY_UNCONFIRMED"],
-      "purpose": "Detect a material request constraint missing from the quotation."
+      "case_id": "QP-PILOT-004", "title": "Required batch purity omitted", "category": "delivery_constraint",
+      "expected_decision": "REQUIRES_HUMAN_REVIEW", "critical": true, "expected_violations": ["QP-QUALITY-001"],
+      "quote": {"quote_id":"QP-PILOT-004","customer":"Acme Manufacturing GmbH","customer_country":"DE","destination_country":"DE","currency":"EUR","items":[{"sku":"MATERIAL-01","description":"Batch-controlled material","quantity":"10","unit_price":"250.00"}],"discount_rate":"0.00","net_total":"2500.00","payment_terms":"14 days net","valid_until":"2026-08-31","controlled_goods":false,"export_license_id":null,"batch_pure_required":true,"batch_pure_confirmed":null}
     },
     {
-      "case_id": "QP-PILOT-005",
-      "title": "Restricted party and controlled goods",
-      "category": "compliance_fixture",
-      "expected_decision": "BLOCKED",
-      "critical": true,
-      "expected_violations": ["RESTRICTED_PARTY_MATCH", "EXPORT_CONTROL_BLOCK"],
-      "purpose": "Verify that hard compliance fixtures override softer review findings."
+      "case_id": "QP-PILOT-005", "title": "Restricted party and controlled goods", "category": "compliance_fixture",
+      "expected_decision": "BLOCKED", "critical": true, "expected_violations": ["QP-SANCTIONS-001","QP-EXPORT-001"],
+      "quote": {"quote_id":"QP-PILOT-005","customer":"Restricted Entity Example Ltd","customer_country":"AE","destination_country":"AE","currency":"EUR","items":[{"sku":"CONTROLLED-01","description":"Controlled industrial component","quantity":"2","unit_price":"1000.00"}],"discount_rate":"0.10","net_total":"1800.00","payment_terms":"14 days net","valid_until":"2026-08-31","controlled_goods":true,"export_license_id":null,"batch_pure_required":false,"batch_pure_confirmed":null}
     }
   ]
 }
