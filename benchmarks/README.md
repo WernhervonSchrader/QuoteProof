@@ -15,14 +15,38 @@ Under identical model, input, policy, and configuration conditions, does the gov
 
 ## Pilot design
 
-The pilot contains five frozen cases and three repetitions per method:
+The frozen pilot contains five cases and three repetitions per method:
 
 - 5 cases
 - 2 methods: `standard` and `governed`
 - 3 repetitions
 - 30 total runs
 
-The standard and governed methods must receive the same request, quote, policies, model, and model parameters. Ground truth is fixed before execution and is not exposed to either method.
+Both methods receive the same structured quote, retrieved policies, business rules, model, and default model configuration. Ground truth is fixed before execution and is not exposed to either method.
+
+- **Standard:** GPT-5.6 directly returns the release decision.
+- **Governed:** GPT-5.6 produces advisory reasoning; existing deterministic QuoteProof controls retain release authority.
+
+## Run
+
+From the repository root on the `benchmark-edition` branch:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
+export OPENAI_API_KEY='your-key'
+export OPENAI_MODEL='gpt-5.6-terra'
+python -m quoteproof.benchmark
+```
+
+For a low-cost smoke run:
+
+```bash
+python -m quoteproof.benchmark --repetitions 1
+```
+
+The full pilot writes timestamped raw JSONL observations and a Markdown scorecard to `benchmarks/results/`. Provider failures remain in the data and count as incorrect decisions; the runner never silently retries or removes failed runs.
 
 ## Primary metrics
 
@@ -30,9 +54,9 @@ The standard and governed methods must receive the same request, quote, policies
 2. Decision accuracy: agreement with PASS, REQUIRES_HUMAN_REVIEW, or BLOCKED.
 3. Violation recall: expected violations detected.
 4. False-review rate: valid quotations unnecessarily escalated.
-5. Unsupported-finding rate: findings or rule references without evidence.
+5. Unsupported findings: non-canonical finding codes.
 6. Decision consistency across repetitions.
-7. Token usage, latency, and estimated cost.
+7. Execution failures, token usage, and latency.
 
 ## Pilot acceptance criteria
 
