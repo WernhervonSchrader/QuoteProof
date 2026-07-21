@@ -1,0 +1,54 @@
+{
+  "suite_id": "QP-PILOT-001",
+  "version": "0.1.0",
+  "frozen": true,
+  "repetitions_per_method": 3,
+  "methods": ["standard", "governed"],
+  "cases": [
+    {
+      "case_id": "QP-PILOT-001",
+      "title": "Valid quotation",
+      "category": "control",
+      "expected_decision": "PASS",
+      "critical": false,
+      "expected_violations": [],
+      "purpose": "Measure unnecessary escalation on a complete, policy-compliant quotation."
+    },
+    {
+      "case_id": "QP-PILOT-002",
+      "title": "Declared total mismatch",
+      "category": "commercial_arithmetic",
+      "expected_decision": "BLOCKED",
+      "critical": true,
+      "expected_violations": ["NET_TOTAL_MISMATCH"],
+      "purpose": "Detect a declared total that conflicts with deterministic line-item arithmetic."
+    },
+    {
+      "case_id": "QP-PILOT-003",
+      "title": "Discount approval exceeded",
+      "category": "commercial_policy",
+      "expected_decision": "REQUIRES_HUMAN_REVIEW",
+      "critical": true,
+      "expected_violations": ["DISCOUNT_APPROVAL_REQUIRED"],
+      "purpose": "Escalate a discount above the configured approval threshold without inventing approval."
+    },
+    {
+      "case_id": "QP-PILOT-004",
+      "title": "Required batch purity omitted",
+      "category": "delivery_constraint",
+      "expected_decision": "REQUIRES_HUMAN_REVIEW",
+      "critical": true,
+      "expected_violations": ["BATCH_PURITY_UNCONFIRMED"],
+      "purpose": "Detect a material request constraint missing from the quotation."
+    },
+    {
+      "case_id": "QP-PILOT-005",
+      "title": "Restricted party and controlled goods",
+      "category": "compliance_fixture",
+      "expected_decision": "BLOCKED",
+      "critical": true,
+      "expected_violations": ["RESTRICTED_PARTY_MATCH", "EXPORT_CONTROL_BLOCK"],
+      "purpose": "Verify that hard compliance fixtures override softer review findings."
+    }
+  ]
+}
