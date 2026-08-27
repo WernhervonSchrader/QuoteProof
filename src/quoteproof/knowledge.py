@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
+from importlib.resources import files
 
 from .models import PolicyDocument, QuoteDraft
 
-
-POLICY_PATH = Path(__file__).resolve().parents[2] / "knowledge" / "policies.json"
+POLICY_PATH = files("quoteproof").joinpath("data", "policies.json")
 
 
 def load_policy_pack() -> list[PolicyDocument]:
@@ -27,8 +26,4 @@ def retrieve_policies(quote: QuoteDraft) -> list[PolicyDocument]:
         required_tags.add("export")
     if quote.batch_pure_required:
         required_tags.add("quality")
-    return [
-        policy
-        for policy in load_policy_pack()
-        if required_tags.intersection(policy.tags)
-    ]
+    return [policy for policy in load_policy_pack() if required_tags.intersection(policy.tags)]
