@@ -65,8 +65,7 @@ jobs:
       - name: Reject tracked credential files and values
         run: uv run --frozen python scripts/check_tracked_credentials.py
       - name: Bandit SAST
-        # B105 treats the domain enum value PASS as a password-shaped literal.
-        run: uv run --frozen bandit -q -r src -s B105
+        run: uv run --frozen bandit -q -r src
       - name: Dependency audit
         run: |
           mkdir -p artifacts

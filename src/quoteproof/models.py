@@ -31,7 +31,8 @@ class StrictModel(BaseModel):
 
 
 class GateDecision(StrEnum):
-    PASS = "PASS"
+    # This is a domain decision enum, not a credential.
+    PASS = "PASS"  # nosec B105
     REQUIRES_HUMAN_REVIEW = "REQUIRES_HUMAN_REVIEW"
     BLOCKED = "BLOCKED"
 
