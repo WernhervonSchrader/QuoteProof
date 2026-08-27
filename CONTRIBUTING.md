@@ -1,7 +1,9 @@
 # Contributing
 
-The repository is not yet public or open source. A contribution does not imply
-publication, licensing, or acceptance.
+QuoteProof is licensed under Apache License 2.0. Unless explicitly marked
+otherwise in writing, an intentionally submitted and accepted contribution is
+provided under the same license, consistent with section 5. Submission does not
+guarantee acceptance or release.
 
 ## Local checks
 
@@ -14,7 +16,7 @@ uv run ruff format --check src tests scripts
 uv run ruff check src tests scripts
 uv run mypy src
 uv run pytest -q --cov=quoteproof --cov-branch --cov-report=term-missing
-uv run bandit -q -r src -s B105
+uv run bandit -q -r src
 uv run python scripts/check_tracked_credentials.py
 ```
 

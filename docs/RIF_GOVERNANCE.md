@@ -93,5 +93,8 @@ auditable.
 QuoteProof currently uses versioned policy cards and simulated screening data
 for the demo. It cannot claim live sanctions-list screening, legal export-control
 clearance, supplier certification, human approval, or complete RIF/RRS
-conformance. Publication of this QuoteProof-specific RIF subset remains subject
-to explicit IP authorization.
+conformance. The repository owner has authorized publication of only this
+concrete QuoteProof-specific RIF implementation and documentation under the
+repository license. That authorization does not extend to the complete Reliable
+Intelligence Framework, Context Assurance, or other private projects or
+materials, and it grants no trademark rights beyond the license terms.

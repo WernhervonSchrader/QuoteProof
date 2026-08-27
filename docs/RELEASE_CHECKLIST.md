@@ -18,22 +18,26 @@ non-reproducible evidence is `FAIL` or `UNCLEAR`, never `PASS`.
 - [ ] evidence report records full SHA, worktree, tool versions, commands,
   results, artifacts, hashes, risks, and decisions.
 
-## Manual blockers
+## Owner decisions and operational blockers
 
-- [ ] license and IP rights, including QuoteProof fixtures/docs/code;
-- [ ] explicit release scope for the RIF subset;
-- [ ] public exposure or authorized rewrite of commit author email;
-- [ ] keep/remove/archive decision for every remote branch and tag;
-- [ ] product-name/confusion decision for QuoteProof;
-- [ ] privacy and data-flow acceptance by a named owner;
-- [ ] runtime secret rotation/revocation evidence if live use is later approved;
-- [ ] deployed distributed usage guard and budget evidence if live use is later
-  approved;
+- [x] Apache-2.0 license and IP authorization for contained QuoteProof
+  fixtures/docs/code;
+- [x] release scope limited to the concrete QuoteProof RIF subset;
+- [x] public exposure of historical commit author email accepted; no rewrite;
+- [x] existing remote branches and reachable history accepted; no ref deletion;
+- [x] QuoteProof retained for this release without a trademark grant;
+- [x] synthetic-only, no-deployment privacy/data-flow boundary accepted by the
+  repository owner;
+- [x] runtime secret rotation/revocation evidence is not applicable because
+  live use and deployment are outside this release;
+- [x] a distributed usage guard and budget are not applicable because live use
+  and deployment are outside this release;
 - [ ] branch protection evidence;
-- [ ] independent reviewer `PASS` bound to the unchanged final SHA.
+- [ ] required GitHub Actions checks pass against the unchanged release head.
 
 ## Separately authorized actions
 
-Do not push, change visibility, rewrite history, delete remote refs, rotate
-secrets, create tags/releases, deploy, or run live OpenAI tests without explicit
-authorization. Green repository checks do not authorize any of these actions.
+The owner authorized the gate-bound push, pull request, merge, `v0.1.0` tag and
+release, and final visibility change on 27 August 2026. History rewriting,
+remote-ref deletion, deployment, secret operations, and live OpenAI tests remain
+unauthorized. A green check for one SHA does not authorize acting on another.

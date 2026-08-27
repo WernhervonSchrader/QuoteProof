@@ -4,11 +4,11 @@ QuoteProof is a backend-only Python demonstration of governed quotation review.
 It separates optional model-assisted drafting and advisory reasoning from the
 deterministic controls that own the result.
 
-The repository is a local release candidate for independent review. It is not
-published, licensed as open source, production-approved, legally approved, or
-certified. No React or TypeScript frontend is included here. Any separately
-hosted frontend is an external component with its own source and deployment
-evidence.
+The repository is an Apache-2.0-licensed technical release candidate. It is not
+production-approved, legal or compliance advice, professionally certified, or
+a deployment authorization. No React or TypeScript frontend is included here.
+Any separately hosted frontend is an external component with its own source and
+deployment evidence.
 
 ## Safe demonstration path
 
@@ -124,15 +124,26 @@ organizational approval. See:
 
 ## Version and release status
 
-`0.1.0` is the existing package version. The remote branch name
+`0.1.0` is the prepared initial open-source release version. The remote branch name
 `snapshot/hackathon-submission-v1.0` is historical and is not a SemVer release,
-tag, or proof that version 1.0 was published. No tag or GitHub Release is
-created by this work. See [CHANGELOG.md](CHANGELOG.md).
+tag, or proof that version 1.0 was published. See [CHANGELOG.md](CHANGELOG.md).
 
-A public release remains blocked on explicit decisions about license/IP rights,
-the QuoteProof RIF subset, author-email exposure, public branch scope, product
-naming, privacy acceptance, runtime controls/secrets, and independent review of
-the exact final SHA.
+Publication remains conditional on the exact-SHA release gates. Existing history,
+author email addresses, and remote branches are accepted for this release; no
+history or ref cleanup is implied.
+
+## License, RIF scope, and marks
+
+QuoteProof is licensed under the [Apache License 2.0](LICENSE). The license covers
+the materials contained in this repository, including its concrete
+QuoteProof-specific RIF implementation and documentation. It does not license
+the complete Reliable Intelligence Framework, Context Assurance, or any other
+private project or material. See [NOTICE](NOTICE) and the
+[RIF scope](docs/RIF_GOVERNANCE.md).
+
+As stated in Apache License 2.0 section 6, the license does not grant trademark
+rights in the names `QuoteProof` or `Reliable Intelligence Framework` or their
+branding, except for customary attribution and origin descriptions.
 
 ## Human and AI contribution
 

@@ -1,6 +1,7 @@
 # Public-release readiness design
 
-Status: local release-candidate design; no publication authorization.
+Status: gate-bound public release authorized by the repository owner on
+27 August 2026; publication remains blocked until the exact-SHA gates pass.
 
 ## Scope and evidence classes
 
@@ -12,9 +13,13 @@ Status: local release-candidate design; no publication authorization.
 - `DEPLOYMENT_EVIDENCE`: repository checks and local artifacts are observations
   bound to one exact commit. They are not production, privacy, legal, or
   regulatory approval.
-- `ASSUMPTION_OR_RISK`: license/IP, public author metadata, public refs, the RIF
-  subset, product naming, runtime secrets, and deployment controls require
-  explicit human decisions or evidence.
+- `PROJECT_CONTRACT`: the owner authorized Apache-2.0 licensing of the contained
+  QuoteProof materials and concrete RIF subset, accepted public author metadata
+  and existing refs, and retained the QuoteProof name without granting trademark
+  rights. The complete RIF, Context Assurance, and other private materials remain
+  outside scope.
+- `ASSUMPTION_OR_RISK`: runtime secrets, any future live deployment controls,
+  and public promotion require separate evidence or authorization.
 - `EXTERNAL_NORM`: no legal or regulatory conclusion is introduced by this
   change. Tool findings retain their own published definitions and limits.
 
@@ -73,7 +78,7 @@ server-generated correlation ID, and sanitized error code.
 | Telemetry boundary | `PROJECT_CONTRACT` | Canary secrets and quote text do not appear in logs, errors, or artifacts |
 | Reproducibility | `DEPLOYMENT_EVIDENCE` | Frozen lock sync, wheel/sdist build, clean install, hashes, and SBOM succeed at exact SHA |
 | Release gate | `DEPLOYMENT_EVIDENCE` | Format, lint, typing, tests, coverage, SAST, dependency audit, secret scan, and build all pass |
-| Publication authorization | `ASSUMPTION_OR_RISK` | License/IP, author email, refs, RIF, name, privacy, and independent review decisions are recorded separately |
+| Publication authorization | `PROJECT_CONTRACT` | Owner decisions are recorded separately; visibility changes only after exact-SHA local and GitHub gates pass |
 
 Unavailable, stale, non-reproducible, or SHA-mismatched mandatory evidence is
 `FAIL` or `UNCLEAR`, never `PASS`. Green CI proves repository checks only.

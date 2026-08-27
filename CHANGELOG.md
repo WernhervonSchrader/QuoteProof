@@ -1,9 +1,9 @@
 # Changelog
 
-This project follows a SemVer-compatible package version, but no public release
-or stability promise exists yet.
+This project follows SemVer-compatible package versioning. A release does not
+imply production, legal, compliance, or professional-advice suitability.
 
-## Unreleased
+## 0.1.0 - 2026-08-27
 
 ### Added
 
@@ -14,6 +14,8 @@ or stability promise exists yet.
   allowlisted logging, kill switch, and a replaceable distributed usage guard.
 - Privacy/data-flow, threat-model, contribution, release, and branch-protection
   documentation.
+- Apache License 2.0, copyright attribution, scoped RIF notice, and trademark
+  boundary.
 
 ### Changed
 
@@ -29,9 +31,3 @@ or stability promise exists yet.
 
 - The manual workflow that loaded `OPENAI_API_KEY` merely to test its presence.
 - Claims of an included React/TypeScript frontend or durable audit persistence.
-
-## 0.1.0
-
-Existing internal MVP package version. It has no corresponding public tag or
-GitHub Release. The historical branch name `snapshot/hackathon-submission-v1.0`
-does not change the package version.
