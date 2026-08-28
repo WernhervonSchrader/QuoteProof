@@ -4,8 +4,8 @@ QuoteProof separates three responsibilities that are often collapsed into one
 LLM call:
 
 1. **Drafting** — OpenAI turns the sales request into a structured quotation.
-2. **Reasoning support** — RIF v3.4 makes the decision context explicit and
-   evidence-linked.
+2. **Reasoning support** — the QuoteProof-specific `3.4-rc2-demo` RIF contract
+   makes the decision context explicit and evidence-linked.
 3. **Release authority** — deterministic controls decide whether the quotation
    can proceed.
 
@@ -29,7 +29,8 @@ Before a gate decision is presented, the governed workflow produces a compact
 - the required response: answer, partial answer, abstention or human review.
 
 This is deliberately **not private chain-of-thought**. It is a reviewable
-decision record that a user, auditor or authorised reviewer can inspect.
+response object that a user or authorised reviewer can inspect. QuoteProof does
+not persist it or make it tamper-evident.
 
 ## The RIF validation boundary
 
@@ -67,9 +68,9 @@ Deterministic controls
 PASS · REQUIRES HUMAN REVIEW · BLOCKED
 ~~~
 
-Every stage emits an audit event. The final report is rendered from the
-validated structured state, and report-integrity checks ensure that the prose
-matches the gate outcome.
+Every stage emits an audit event into the response. The final report is rendered
+from validated structured state, and report-integrity failure is conservatively
+blocked. The response audit trail is not durable storage.
 
 ## Why this matters for QuoteProof
 
@@ -90,7 +91,10 @@ auditable.
 ## MVP scope and limitations
 
 QuoteProof currently uses versioned policy cards and simulated screening data
-for the demo. It does not claim live sanctions-list screening, legal
-export-control clearance or complete RIF/RRS conformance. Those boundaries are
-shown explicitly so that a reviewer can distinguish the MVP demonstration from
-a production compliance service.
+for the demo. It cannot claim live sanctions-list screening, legal export-control
+clearance, supplier certification, human approval, or complete RIF/RRS
+conformance. The repository owner has authorized publication of only this
+concrete QuoteProof-specific RIF implementation and documentation under the
+repository license. That authorization does not extend to the complete Reliable
+Intelligence Framework, Context Assurance, or other private projects or
+materials, and it grants no trademark rights beyond the license terms.

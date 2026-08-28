@@ -1,12 +1,19 @@
 from __future__ import annotations
 
-import os
-from typing import Protocol
+from typing import Any, Protocol
 
-from openai import OpenAI
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from .models import DraftingResult, DraftRequest, NetTotalSource, QuoteDraft
+from .models import (
+    CurrencyCode,
+    DraftingResult,
+    DraftRequest,
+    Identifier,
+    NetTotalSource,
+    QuoteDraft,
+    ShortText,
+    StrictModel,
+)
 
 
 class DraftingError(RuntimeError):
@@ -15,35 +22,35 @@ class DraftingError(RuntimeError):
 
 class ResponsesClient(Protocol):
     class Responses(Protocol):
-        def parse(self, **kwargs): ...
+        def parse(self, **kwargs: object) -> Any: ...
 
     responses: Responses
 
 
-class GeneratedQuoteItem(BaseModel):
+class GeneratedQuoteItem(StrictModel):
     """Model-facing schema without defaults or Decimal union encodings."""
 
-    sku: str
-    description: str
+    sku: Identifier
+    description: ShortText
     quantity: float = Field(gt=0)
     unit_price: float = Field(ge=0)
 
 
-class GeneratedQuoteDraft(BaseModel):
+class GeneratedQuoteDraft(StrictModel):
     """Strict structured-output envelope; every field is explicitly required."""
 
-    quote_id: str
-    customer: str | None
-    customer_country: str | None
-    destination_country: str | None
-    currency: str | None
-    items: list[GeneratedQuoteItem]
+    quote_id: Identifier
+    customer: ShortText | None
+    customer_country: str | None = Field(pattern=r"^[A-Z]{2}$")
+    destination_country: str | None = Field(pattern=r"^[A-Z]{2}$")
+    currency: CurrencyCode | None
+    items: list[GeneratedQuoteItem] = Field(max_length=50)
     discount_rate: float = Field(ge=0, le=1)
     net_total: float | None
-    payment_terms: str | None
-    valid_until: str | None
+    payment_terms: ShortText | None
+    valid_until: str | None = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     controlled_goods: bool
-    export_license_id: str | None
+    export_license_id: Identifier | None
     batch_pure_required: bool
     batch_pure_confirmed: bool | None
 
@@ -53,15 +60,18 @@ class OpenAIQuoteDrafter:
 
     def __init__(
         self,
-        client: ResponsesClient | None = None,
-        model: str | None = None,
+        client: ResponsesClient,
+        model: str,
+        max_output_tokens: int = 1_200,
     ) -> None:
-        self.model = model or os.getenv("OPENAI_MODEL", "gpt-5.6-terra")
-        self.client = client or OpenAI()
+        self.model = model
+        self.client = client
+        self.max_output_tokens = max_output_tokens
 
     def draft(self, request: DraftRequest) -> DraftingResult:
         response = self.client.responses.parse(
             model=self.model,
+            max_output_tokens=self.max_output_tokens,
             input=[
                 {
                     "role": "developer",
