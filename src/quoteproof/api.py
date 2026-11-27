@@ -15,7 +15,14 @@ from openai import (
 
 from .drafting import DraftingError, OpenAIQuoteDrafter
 from .graph import QuoteReviewPipeline
-from .models import DraftAndReviewResult, DraftRequest, QuoteDraft, ReviewResult
+from .models import (
+    DraftAndReviewResult,
+    DraftRequest,
+    QuoteDraft,
+    ReviewResult,
+    RevisionReviewRequest,
+)
+from .profile import load_profile
 from .reasoning import OpenAIReasoningAnalyst
 from .scenarios import list_scenarios, load_scenario
 
@@ -36,7 +43,8 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "X-QuoteProof-Demo-Key"],
 )
-pipeline = QuoteReviewPipeline()
+profile = load_profile()
+pipeline = QuoteReviewPipeline(profile=profile)
 
 
 def _require_demo_access(access_code: str | None) -> None:
@@ -83,6 +91,29 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/profile")
+def active_profile() -> dict[str, object]:
+    """The active tenant profile, without connection details or queries."""
+
+    return {
+        "profile_id": profile.profile_id,
+        "description": profile.description,
+        "rules": profile.rules.model_dump(mode="json", exclude={"provenance"}),
+        "rule_provenance": {
+            key: value.model_dump(mode="json")
+            for key, value in profile.rules.provenance.items()
+        },
+        "erp": {
+            "adapter": profile.erp.adapter,
+            "required": profile.erp.required,
+            "lookups": sorted((profile.erp.options.get("queries") or {}).keys()),
+        },
+        "restricted_parties": profile.restricted_parties.label
+        if profile.restricted_parties
+        else None,
+    }
+
+
 @app.get("/scenarios")
 def scenarios() -> list[str]:
     return list_scenarios()
@@ -91,6 +122,13 @@ def scenarios() -> list[str]:
 @app.post("/review", response_model=ReviewResult)
 def review(quote: QuoteDraft) -> ReviewResult:
     return pipeline.run(quote)
+
+
+@app.post("/review/revision", response_model=ReviewResult)
+def review_revision(request: RevisionReviewRequest) -> ReviewResult:
+    """Review a revised quotation against its previous version and prior approval."""
+
+    return pipeline.run(request.quote, previous=request.previous, approval=request.approval)
 
 
 @app.post("/review/{scenario}", response_model=ReviewResult)
@@ -139,6 +177,8 @@ def draft_and_review(
         model=drafter.model,
         net_total_source=drafted.net_total_source,
         review=QuoteReviewPipeline(
-            reasoner=OpenAIReasoningAnalyst(model=drafter.model)
+            profile=profile,
+            erp=pipeline.erp,
+            reasoner=OpenAIReasoningAnalyst(model=drafter.model),
         ).run(drafted.quote),
     )

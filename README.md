@@ -73,7 +73,7 @@ The prepared scenarios are public and require no OpenAI call.
 
 1. Open the [live demo](https://quoteproof-demo.wernhervonschrader.chatgpt.site).
 2. Select **PASS**, **HUMAN REVIEW**, and **BLOCKED**.
-3. Compare the findings, policy evidence, gate precedence, and eight-step audit trail.
+3. Compare the findings, policy evidence, gate precedence, and nine-step audit trail.
 4. Enter the jury access code supplied privately in the Devpost testing instructions.
 5. Select **Generate AI draft** to run the live GPT-5.6 path.
 6. Inspect the structured quote, RIF Reasoning Brief, reasoning validation, deterministic findings, and final decision.
@@ -86,6 +86,8 @@ Sales request
 GPT-5.6 structured draft
     ↓
 Deterministic total calculation
+    ↓
+Read-only ERP snapshot (any ERP, via tenant profile)
     ↓
 Versioned policy retrieval
     ↓
@@ -114,8 +116,39 @@ The Build Week MVP includes:
 - fail-closed reasoning validation;
 - explicit PASS, REQUIRES HUMAN REVIEW, and BLOCKED outcomes;
 - report-integrity validation;
-- an eight-event audit trail;
+- a nine-event audit trail;
 - repeatable API and regression tests.
+
+## Works with any ERP
+
+Every customer-specific rule lives in a **tenant profile** (`profiles/*.toml`),
+not in code: currencies, discount authority, price tolerances, minimum margin,
+forbidden outbound terms, the restricted-party source and the ERP connection.
+Each rule can carry its provenance; an unconfirmed **placeholder** still runs,
+but sends every quotation that relies on it to human review.
+
+QuoteProof reads from the ERP and never writes to it. Adapters included:
+
+- **`sql`** – any ERP whose data tier is a SQL database (MS SQL Server, Oracle,
+  PostgreSQL, MySQL/MariaDB, DB2, …), including undocumented three-tier
+  systems. Lookups are parameterised `SELECT` statements and column maps in the
+  profile; anything that is not read-only is rejected when the profile loads.
+- **`static`** – JSON exports for pilots and demos.
+- **your own** – Odoo, SAP OData, Business Central and others through
+  `register_adapter`, three methods each.
+
+With ERP evidence, QuoteProof also checks price floors, list-price deviation,
+blocked customers and items, credit holds and the ERP's export flags. Without
+it, a profile that requires the ERP fails closed to human review.
+
+Independently of the ERP, it checks the **customer-facing document** for
+internal pricing language, internal cost figures and other customers' names;
+treats **counter-offers as numbered revisions** ("the margin moved" when the
+price drops for an unchanged scope); and binds every **approval to a
+decision-basis hash**, so a yes lapses as soon as anything material changes.
+
+See [ERP_INTEGRATION.md](docs/ERP_INTEGRATION.md) for setup and the full list
+of controls.
 
 ## Drafting and arithmetic contract
 
@@ -151,11 +184,17 @@ pytest
 uvicorn quoteproof.api:app --reload
 ```
 
+Select a tenant profile with `QUOTEPROOF_PROFILE` (default: `default`), e.g.
+`QUOTEPROOF_PROFILE=demo-erp` for the ERP-backed demo, and check a profile and
+its ERP connection with `python -m quoteproof.check_profile <profile>`.
+
 Open `http://127.0.0.1:8000/docs` and run:
 
 - `POST /review/pass`
 - `POST /review/review`
 - `POST /review/blocked`
+- `POST /review/revision` — a revised quotation with its previous version and prior approval
+- `GET /profile` — the active tenant profile, without connection details
 - `POST /draft-and-review` — requires server-side `OPENAI_API_KEY` and `QUOTEPROOF_DEMO_KEY`
 
 ## Security boundary

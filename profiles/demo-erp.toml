@@ -1,0 +1,35 @@
+# Demo profile with an ERP connected through a file export.
+# Shows price-floor, list-price, ERP export-flag and outbound-leak controls
+# without a live system. Run with QUOTEPROOF_PROFILE=demo-erp.
+profile_id = "demo-erp"
+description = "Demo with ERP evidence from demo_erp/export.json."
+
+[rules]
+currency = "EUR"
+allowed_currencies = ["EUR", "CHF"]
+total_tolerance = "0.01"
+list_price_tolerance = "0.05"
+minimum_margin_over_cost = "0.05"
+
+# A rule can carry its provenance. A placeholder still runs,
+# but every quotation that relies on it goes to human review.
+[rules.maximum_discount_without_approval]
+value = "0.10"
+status = "confirmed"
+confirmed_by = "Head of Sales (demo)"
+confirmed_on = "2026-11-27"
+
+[outbound]
+# Added to the built-in German/English list of internal pricing terms.
+additional_forbidden_terms = ["kalkulationsbasis", "nachlassreserve"]
+
+[restricted_parties]
+entities = ["Restricted Entity Example Ltd", "Sample Embargoed Trading FZE"]
+fuzzy_review_threshold = 0.88
+label = "simulated restricted-party fixture"
+
+[erp]
+adapter = "static"
+required = true
+file = "demo_erp/export.json"
+label = "demo-erp-export"

@@ -1,0 +1,15 @@
+# Default profile: reproduces the Build Week demo behaviour.
+# Copy this file per customer and adjust. Nothing customer-specific lives in code.
+profile_id = "default"
+description = "Demo defaults: EUR, 10 % discount authority, no ERP connected."
+
+[rules]
+currency = "EUR"
+maximum_discount_without_approval = "0.10"
+total_tolerance = "0.01"
+list_price_tolerance = "0.05"
+minimum_margin_over_cost = "0"
+
+[erp]
+adapter = "none"
+required = false

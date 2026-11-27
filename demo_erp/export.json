@@ -1,0 +1,14 @@
+{
+  "customers": [
+    {"customer_id": "K-10001", "name": "Acme Manufacturing GmbH", "country": "DE"},
+    {"customer_id": "K-10002", "name": "Nordwerk Antriebstechnik AG", "country": "DE"},
+    {"customer_id": "K-10003", "name": "Helvetia Precision SA", "country": "CH", "credit_hold": true},
+    {"customer_id": "K-10004", "name": "Old Account Trading GmbH", "country": "DE", "blocked": true}
+  ],
+  "items": [
+    {"sku": "CONSULT-01", "description": "Implementation workshop", "list_price": "1000.00", "cost_floor": "720.00", "currency": "EUR"},
+    {"sku": "GB-4471", "description": "Planetary gearbox 40:1", "list_price": "1850.00", "cost_floor": "1240.00", "currency": "EUR", "controlled_goods": false},
+    {"sku": "SV-200", "description": "Servo drive 2 kW, dual-use classified", "list_price": "2400.00", "cost_floor": "1610.00", "currency": "EUR", "controlled_goods": true, "export_classification": "3A999"},
+    {"sku": "LEGACY-07", "description": "Discontinued encoder", "list_price": "310.00", "cost_floor": "205.00", "currency": "EUR", "blocked_for_sale": true}
+  ]
+}

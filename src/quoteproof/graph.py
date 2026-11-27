@@ -3,7 +3,9 @@ from __future__ import annotations
 from langgraph.graph import END, StateGraph
 from openai import OpenAIError
 
+from .erp import ERPAdapter, build_adapter, collect_evidence
 from .models import (
+    ApprovalRecord,
     AuditEvent,
     BusinessRules,
     Finding,
@@ -16,6 +18,7 @@ from .models import (
     ReasoningValidationStatus,
 )
 from .knowledge import retrieve_policies
+from .profile import TenantProfile
 from .reasoning import (
     REASONING_POLICY_ID,
     ReasoningAnalyst,
@@ -23,7 +26,12 @@ from .reasoning import (
     validate_reasoning_brief,
 )
 from .validators import (
+    decision_basis_hash,
+    validate_against_erp,
     validate_currency,
+    validate_outbound_document,
+    validate_revision,
+    validate_rule_provenance,
     validate_discount,
     validate_required_fields,
     validate_sanctions,
@@ -44,9 +52,19 @@ class QuoteReviewPipeline:
         self,
         rules: BusinessRules | None = None,
         reasoner: ReasoningAnalyst | None = None,
+        profile: TenantProfile | None = None,
+        erp: ERPAdapter | None = None,
     ) -> None:
-        self.rules = rules or BusinessRules()
+        self.profile = profile or TenantProfile()
+        if rules is not None:
+            self.profile = self.profile.model_copy(update={"rules": rules})
+        self.rules = self.profile.rules
         self.reasoner = reasoner
+        if erp is None and self.profile.erp.adapter not in {"", "none"}:
+            erp = build_adapter(self.profile.erp.adapter, self.profile.erp.options)
+        self.erp = erp
+        restricted = self.profile.restricted_parties
+        self._restricted_entities = restricted.load_entities() if restricted else ()
         self.graph = self._build()
 
     def ingest(self, state: QuoteState) -> dict:
@@ -55,8 +73,30 @@ class QuoteReviewPipeline:
         ]
         return {"audit_trail": audit}
 
+    def erp_lookup(self, state: QuoteState) -> dict:
+        evidence = collect_evidence(self.erp, state["quote"])
+        if evidence is None:
+            status, detail = "SKIPPED", "not_configured"
+        else:
+            status = "OK" if evidence.status == "ok" else "FAIL"
+            detail = (
+                f"{evidence.adapter}: {len(evidence.items)} items, "
+                f"{len(evidence.missing_skus)} missing"
+                if evidence.status == "ok"
+                else f"{evidence.adapter}: unavailable"
+            )
+        basis = decision_basis_hash(state["quote"], state["rules"], self.profile.profile_id)
+        audit = state["audit_trail"] + [
+            _event("erp_lookup", "read_only_erp_snapshot", status, detail)
+        ]
+        return {"erp_evidence": evidence, "decision_basis_hash": basis, "audit_trail": audit}
+
     def retrieve_knowledge(self, state: QuoteState) -> dict:
-        policies = retrieve_policies(state["quote"])
+        policies = retrieve_policies(
+            state["quote"],
+            erp_used=state["erp_evidence"] is not None or self.profile.erp.required,
+            revision_check=state["previous"] is not None or state["approval"] is not None,
+        )
         audit = state["audit_trail"] + [
             _event(
                 "retrieve_knowledge",
@@ -148,13 +188,24 @@ class QuoteReviewPipeline:
         quote, rules = state["quote"], state["rules"]
         findings = [
             *state["findings"],
+            *validate_rule_provenance(rules),
             *validate_required_fields(quote, rules),
             *validate_currency(quote, rules),
             *validate_total(quote, rules),
             *validate_discount(quote, rules),
-            *validate_sanctions(quote, state["retrieved_policies"]),
+            *validate_sanctions(
+                quote,
+                state["retrieved_policies"],
+                extra_entities=self._restricted_entities,
+                **self._screening_options(),
+            ),
             *validate_export_control(quote),
             *validate_batch_purity(quote),
+            *validate_against_erp(quote, state["erp_evidence"], rules, self.profile.erp.required),
+            *validate_outbound_document(quote, self.profile.outbound, state["erp_evidence"]),
+            *validate_revision(
+                quote, state["previous"], state["approval"], state["decision_basis_hash"]
+            ),
         ]
         audit = state["audit_trail"] + [
             _event(
@@ -165,6 +216,15 @@ class QuoteReviewPipeline:
             )
         ]
         return {"findings": findings, "audit_trail": audit}
+
+    def _screening_options(self) -> dict:
+        restricted = self.profile.restricted_parties
+        if restricted is None:
+            return {}
+        return {
+            "review_threshold": restricted.fuzzy_review_threshold,
+            "label": restricted.label,
+        }
 
     def decide_gate(self, state: QuoteState) -> dict:
         effects = {finding.effect for finding in state["findings"]}
@@ -214,6 +274,7 @@ class QuoteReviewPipeline:
     def _build(self):
         graph = StateGraph(QuoteState)
         graph.add_node("ingest", self.ingest)
+        graph.add_node("erp_lookup", self.erp_lookup)
         graph.add_node("retrieve_knowledge", self.retrieve_knowledge)
         graph.add_node("reason", self.reason)
         graph.add_node("validate_reasoning", self.validate_reasoning)
@@ -222,7 +283,8 @@ class QuoteReviewPipeline:
         graph.add_node("report", self.generate_report)
         graph.add_node("report_integrity", self.validate_report_integrity)
         graph.set_entry_point("ingest")
-        graph.add_edge("ingest", "retrieve_knowledge")
+        graph.add_edge("ingest", "erp_lookup")
+        graph.add_edge("erp_lookup", "retrieve_knowledge")
         graph.add_edge("retrieve_knowledge", "reason")
         graph.add_edge("reason", "validate_reasoning")
         graph.add_edge("validate_reasoning", "validate")
@@ -232,7 +294,12 @@ class QuoteReviewPipeline:
         graph.add_edge("report_integrity", END)
         return graph.compile()
 
-    def run(self, quote: QuoteDraft) -> ReviewResult:
+    def run(
+        self,
+        quote: QuoteDraft,
+        previous: QuoteDraft | None = None,
+        approval: ApprovalRecord | None = None,
+    ) -> ReviewResult:
         initial: QuoteState = {
             "quote": quote,
             "rules": self.rules,
@@ -249,6 +316,16 @@ class QuoteReviewPipeline:
                 issues=[],
             ),
             "reasoning_error": None,
+            "previous": previous,
+            "approval": approval,
+            "erp_evidence": None,
+            "decision_basis_hash": "",
         }
         result = self.graph.invoke(initial)
-        return ReviewResult.model_validate(result)
+        return ReviewResult.model_validate(
+            {
+                **result,
+                "profile_id": self.profile.profile_id,
+                "rule_provenance": self.rules.provenance,
+            }
+        )
