@@ -41,5 +41,40 @@
     "version": "3.4-rc2-demo",
     "tags": ["reasoning"],
     "content": "Reasoning must separate facts, assumptions, constraints, contradictions and uncertainty; cite approved evidence; calibrate confidence; abstain or route to human review when material evidence is insufficient; and never own the release decision."
+  },
+  {
+    "id": "POL-PROFILE-001",
+    "title": "Confirmed business rules",
+    "version": "2026-11",
+    "tags": ["profile"],
+    "content": "Every commercial rule comes from the tenant profile with an owner and a date. A placeholder rule may run, but every quotation that relies on it requires human review."
+  },
+  {
+    "id": "POL-ERP-001",
+    "title": "ERP evidence",
+    "version": "2026-11",
+    "tags": ["erp"],
+    "content": "Customers and items are verified read-only against the ERP. Unknown customers or items, credit holds and unavailable ERP data route to human review; blocked customers and items blocked for sale stop the quotation. Missing data is never filled in by the model."
+  },
+  {
+    "id": "POL-PRICE-001",
+    "title": "Price floor and list-price deviation",
+    "version": "2026-11",
+    "tags": ["erp", "price"],
+    "content": "The net unit price after discount must not fall below the ERP price floor plus the configured minimum margin. Deviations from the ERP list price beyond the configured tolerance require human review. Currencies are never converted implicitly."
+  },
+  {
+    "id": "POL-OUTBOUND-001",
+    "title": "Customer-facing document hygiene",
+    "version": "2026-11",
+    "tags": ["outbound"],
+    "content": "The customer-facing quotation states prices and scope only. Internal pricing language, internal ERP cost figures and other customers' names must never appear in it."
+  },
+  {
+    "id": "POL-REVISION-001",
+    "title": "Revisions and approval validity",
+    "version": "2026-11",
+    "tags": ["revision"],
+    "content": "A counter-offer is a numbered revision of the same quotation. A lower price for an unchanged scope means the margin moved and needs review. An approval covers exactly the decision basis it was given on and lapses on any change."
   }
 ]

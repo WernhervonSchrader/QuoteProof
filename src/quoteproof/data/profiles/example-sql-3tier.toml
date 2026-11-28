@@ -1,0 +1,75 @@
+# Template: an ERP we do not know, whose data tier is a SQL database
+# (typical three-tier system: client – application server – SQL server).
+#
+# QuoteProof reads it through any DB-API 2.0 driver with read-only SELECTs.
+# Steps to adapt for a customer:
+#   1. Ask the customer's IT for a read-only database user, ideally limited
+#      to a few views (recommended: qp_v_items, qp_v_customers).
+#   2. Put the connection string in the environment variable named below.
+#      It is never written into this file.
+#   3. Map the views' column names below. Only the column names change;
+#      no code changes are needed.
+#   4. Keep the filled-in copy outside this public repository and point
+#      QUOTEPROOF_TENANT_PROFILE_DIR at its folder.
+#   5. Run `python -m quoteproof.check_profile <name>` to verify.
+profile_id = "example-sql-3tier"
+description = "Unknown three-tier ERP, read via its SQL data tier (template)."
+
+[rules]
+currency = "EUR"
+total_tolerance = "0.01"
+list_price_tolerance = "0.05"
+
+# Unconfirmed values are marked, not hidden: quotations relying on them go to review.
+[rules.maximum_discount_without_approval]
+value = "0.10"
+status = "placeholder"
+note = "To be confirmed by the customer's head of sales."
+
+[rules.minimum_margin_over_cost]
+value = "0.08"
+status = "placeholder"
+note = "To be confirmed by the customer's controlling."
+
+[erp]
+adapter = "sql"
+required = true
+driver = "pyodbc"                       # MS SQL Server; also: oracledb, psycopg, pymysql, ibm_db_dbi
+connection_env = "QUOTEPROOF_ERP_DSN"   # e.g. DRIVER={ODBC Driver 18 for SQL Server};SERVER=…;DATABASE=…;UID=…;PWD=…
+label = "customer-erp"
+
+[erp.queries.item]
+sql = "SELECT ArtikelNr, Bezeichnung, VKPreis, Preisuntergrenze, Waehrung, Exportkontrolle, Ausfuhrliste, Gesperrt FROM qp_v_items WHERE ArtikelNr = :sku"
+[erp.queries.item.columns]
+sku = "ArtikelNr"
+description = "Bezeichnung"
+list_price = "VKPreis"
+cost_floor = "Preisuntergrenze"
+currency = "Waehrung"
+controlled_goods = "Exportkontrolle"
+export_classification = "Ausfuhrliste"
+blocked_for_sale = "Gesperrt"
+
+[erp.queries.customer_by_id]
+sql = "SELECT KundenNr, Name1, Land, Liefersperre, Kreditsperre FROM qp_v_customers WHERE KundenNr = :customer_id"
+[erp.queries.customer_by_id.columns]
+customer_id = "KundenNr"
+name = "Name1"
+country = "Land"
+blocked = "Liefersperre"
+credit_hold = "Kreditsperre"
+
+[erp.queries.customer_by_name]
+sql = "SELECT KundenNr, Name1, Land, Liefersperre, Kreditsperre FROM qp_v_customers WHERE Name1 = :name"
+[erp.queries.customer_by_name.columns]
+customer_id = "KundenNr"
+name = "Name1"
+country = "Land"
+blocked = "Liefersperre"
+credit_hold = "Kreditsperre"
+
+# Used only by the outbound check, to catch other customers' names in a quotation.
+[erp.queries.customer_names]
+sql = "SELECT Name1 FROM qp_v_customers WHERE Aktiv = 1"
+[erp.queries.customer_names.columns]
+name = "Name1"

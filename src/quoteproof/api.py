@@ -37,7 +37,14 @@ from .live import (
     UsageDecision,
     UsageGuard,
 )
-from .models import DraftAndReviewResult, DraftRequest, QuoteDraft, ReviewResult
+from .models import (
+    DraftAndReviewResult,
+    DraftRequest,
+    QuoteDraft,
+    ReviewResult,
+    RevisionReviewRequest,
+)
+from .profile import TenantProfile, load_profile
 from .reasoning import OpenAIReasoningAnalyst
 from .scenarios import list_scenarios, load_scenario
 from .telemetry import emit_operation_log
@@ -144,6 +151,7 @@ def create_app(
     demo_access_resolver: SecretResolver | None = None,
     provider_secret_resolver: SecretResolver | None = None,
     client_factory: ClientFactory | None = None,
+    tenant_profile: TenantProfile | None = None,
 ) -> FastAPI:
     active_settings = settings or AppSettings.from_environment()
     active_settings.validate()
@@ -173,7 +181,8 @@ def create_app(
         allow_methods=["GET", "POST"],
         allow_headers=["Content-Type", "X-QuoteProof-Demo-Key"],
     )
-    pipeline = QuoteReviewPipeline()
+    active_profile = tenant_profile or load_profile()
+    pipeline = QuoteReviewPipeline(profile=active_profile)
 
     @api.middleware("http")
     async def operational_logging(
@@ -236,6 +245,30 @@ def create_app(
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    @api.get("/profile")
+    def profile() -> dict[str, object]:
+        """The active tenant profile, without connection details or queries."""
+
+        return {
+            "profile_id": active_profile.profile_id,
+            "description": active_profile.description,
+            "rules": active_profile.rules.model_dump(mode="json", exclude={"provenance"}),
+            "rule_provenance": {
+                key: value.model_dump(mode="json")
+                for key, value in active_profile.rules.provenance.items()
+            },
+            "erp": {
+                "adapter": active_profile.erp.adapter,
+                "required": active_profile.erp.required,
+                "lookups": sorted(
+                    cast(dict[str, object], active_profile.erp.options.get("queries") or {})
+                ),
+            },
+            "restricted_parties": active_profile.restricted_parties.label
+            if active_profile.restricted_parties
+            else None,
+        }
+
     @api.get("/scenarios")
     def scenarios() -> list[str]:
         return list_scenarios()
@@ -243,6 +276,12 @@ def create_app(
     @api.post("/review", response_model=ReviewResult)
     def review(quote: QuoteDraft) -> ReviewResult:
         return pipeline.run(quote)
+
+    @api.post("/review/revision", response_model=ReviewResult)
+    def review_revision(request: RevisionReviewRequest) -> ReviewResult:
+        """Review a revised quotation against its previous version and prior approval."""
+
+        return pipeline.run(request.quote, previous=request.previous, approval=request.approval)
 
     @api.post("/review/{scenario}", response_model=ReviewResult)
     def review_scenario(
@@ -310,11 +349,13 @@ def create_app(
         try:
             drafted = drafter.draft(draft_request)
             review_result = QuoteReviewPipeline(
+                profile=active_profile,
+                erp=pipeline.erp,
                 reasoner=OpenAIReasoningAnalyst(
                     client=provider_client,
                     model=active_settings.model,
                     max_output_tokens=active_settings.provider_max_output_tokens,
-                )
+                ),
             ).run(drafted.quote)
         except DraftingError:
             raise _safe_http_error(

@@ -36,6 +36,7 @@ tamper-evident.
 | --- | --- | --- |
 | Structured draft | optional OpenAI model | proposal only |
 | Evidence-linked reasoning brief | optional OpenAI model | advisory only |
+| ERP snapshot | read-only adapter selected by the tenant profile | evidence only |
 | Schema and reasoning validation | deterministic Python | may add review/block findings |
 | Commercial fixture controls | deterministic Python | sole gate authority |
 | Human acceptance | authorized person outside QuoteProof | not represented by model output |
@@ -43,6 +44,49 @@ tamper-evident.
 Gate priority is deterministic: `BLOCKED > REQUIRES_HUMAN_REVIEW > PASS`.
 A report-integrity failure is conservatively converted to `BLOCKED`. Model text
 cannot remove a finding, grant `PASS`, or impersonate a human decision.
+
+## Tenant profiles and ERP evidence
+
+Customer-specific rules live in a **tenant profile** (TOML), not in code:
+currencies, discount authority, price tolerances, minimum margin, forbidden
+outbound terms, the restricted-party source and the ERP connection. Each rule
+can carry its provenance; an unconfirmed **placeholder** still runs, but sends
+every quotation that relies on it to human review.
+
+Built-in profiles ship in `src/quoteproof/data/profiles/`: `default` (the demo
+rules, no ERP), `demo-erp` (synthetic ERP export) and `example-sql-3tier` (a
+template). Select one with `QUOTEPROOF_TENANT_PROFILE`. Keep real customer
+profiles **outside this repository** and point `QUOTEPROOF_TENANT_PROFILE_DIR`
+at their folder. `QUOTEPROOF_PROFILE` stays the runtime profile
+(`production` or `development`) and is unrelated.
+
+QuoteProof reads from an ERP and never writes to it:
+
+- `sql`: any ERP whose data tier is a SQL database, including undocumented
+  three-tier systems, through a DB-API 2.0 driver. Lookups are parameterised
+  `SELECT` statements and column maps in the profile; anything that is not
+  read-only is rejected when the profile loads. The connection string comes
+  only from an environment variable.
+- `static`: JSON exports for pilots and demos.
+- your own adapter through `register_adapter`, three methods each.
+
+With ERP evidence, QuoteProof also checks price floors, list-price deviation,
+blocked customers and items, credit holds and the ERP's export flags. An
+unreachable or ambiguous ERP never passes; it routes to human review.
+Independently of the ERP, it checks the customer-facing document for internal
+pricing language, internal cost figures and other customers' names; treats
+counter-offers as numbered revisions ("the margin moved" when the price drops
+for an unchanged scope); and binds every approval to a `decision_basis_hash`,
+so an approval lapses as soon as anything material changes.
+
+```text
+GET  /profile          -> active tenant profile, without connection details
+POST /review/revision  -> {quote, previous?, approval?}
+```
+
+`python -m quoteproof.check_profile <profile> --sku <item>` verifies a profile
+and its ERP connection during onboarding. Setup steps and the full list of
+controls: [docs/ERP_INTEGRATION.md](docs/ERP_INTEGRATION.md).
 
 ## Live OpenAI path
 

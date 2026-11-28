@@ -13,13 +13,21 @@ def load_policy_pack() -> list[PolicyDocument]:
     return [PolicyDocument.model_validate(item) for item in raw]
 
 
-def retrieve_policies(quote: QuoteDraft) -> list[PolicyDocument]:
+def retrieve_policies(
+    quote: QuoteDraft,
+    erp_used: bool = False,
+    revision_check: bool = False,
+) -> list[PolicyDocument]:
     """Retrieve only approved policy cards relevant to the quotation.
 
     This Gate 2 retriever is deterministic and local. It is intentionally not
     presented as a live sanctions or export-control data connection.
     """
-    required_tags = {"quote", "sanctions", "reasoning"}
+    required_tags = {"quote", "sanctions", "reasoning", "profile", "outbound"}
+    if erp_used:
+        required_tags.update({"erp", "price", "export"})
+    if revision_check:
+        required_tags.add("revision")
     if quote.discount_rate > 0:
         required_tags.add("approval")
     if quote.controlled_goods or quote.destination_country != quote.customer_country:

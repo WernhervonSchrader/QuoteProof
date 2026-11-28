@@ -25,7 +25,13 @@ class FakeResponses:
 
 def generated_scenario(name: str, **updates: object) -> GeneratedQuoteDraft:
     quote = load_scenario(name).model_copy(update=updates)
-    payload = quote.model_dump(mode="json", exclude_computed_fields=True)
+    # Revision, ERP customer id and customer document are set by the governed
+    # workflow, never by the drafting model, so they are not part of its schema.
+    payload = quote.model_dump(
+        mode="json",
+        exclude_computed_fields=True,
+        exclude={"revision", "customer_id", "customer_document"},
+    )
     return GeneratedQuoteDraft.model_validate(payload)
 
 
