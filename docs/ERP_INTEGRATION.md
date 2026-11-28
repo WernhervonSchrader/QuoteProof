@@ -1,8 +1,11 @@
 # Connecting QuoteProof to any ERP
 
 QuoteProof does not assume an ERP. Each customer gets a **tenant profile**
-(`profiles/<name>.toml`) that holds every customer-specific rule and the ERP
-connection. No customer-specific logic lives in code.
+(a `<name>.toml` file) that holds every customer-specific rule and the ERP
+connection. No customer-specific logic lives in code. Built-in profiles ship in
+`src/quoteproof/data/profiles/`; real customer profiles belong outside this
+public repository, in the folder named by `QUOTEPROOF_TENANT_PROFILE_DIR`.
+Relative file paths inside a profile resolve against the profile's folder.
 
 ## What QuoteProof needs from an ERP
 
@@ -26,7 +29,9 @@ and reads the database through any DB-API 2.0 driver.
 1. Ask the customer's IT for a **read-only database user**, ideally limited to
    two views, e.g. `qp_v_items` and `qp_v_customers`. Views decouple QuoteProof
    from the ERP's table structure and keep the access narrow.
-2. Copy `profiles/example-sql-3tier.toml` to `profiles/<customer>.toml`.
+2. Copy `src/quoteproof/data/profiles/example-sql-3tier.toml` to
+   `<customer>.toml` in your private profile folder and set
+   `QUOTEPROOF_TENANT_PROFILE_DIR` to that folder.
 3. Set `driver` (`pyodbc` for MS SQL Server, `oracledb`, `psycopg`, `pymysql`,
    `ibm_db_dbi`, …) and install it.
 4. Put the connection string into the environment variable named in
@@ -37,10 +42,11 @@ and reads the database through any DB-API 2.0 driver.
 6. Check it:
 
    ```bash
-   QUOTEPROOF_ERP_DSN='…' python -m quoteproof.check_profile <customer> --sku 4711 --customer-id K-100
+   QUOTEPROOF_TENANT_PROFILE_DIR=/path/to/profiles QUOTEPROOF_ERP_DSN='…' \
+     python -m quoteproof.check_profile <customer> --sku 4711 --customer-id K-100
    ```
 
-7. Run the API with `QUOTEPROOF_PROFILE=<customer>`.
+7. Run the API with `QUOTEPROOF_TENANT_PROFILE=<customer>`.
 
 Built-in safeguards of the SQL adapter, enforced when the profile loads:
 
@@ -80,7 +86,7 @@ controls and the audit trail, stays the same.
 
 `adapter = "static"` with `file = "path/to/export.json"` reads customers and
 items from a JSON export. This suits pilots, demos and customers who allow no
-direct access. `profiles/demo-erp.toml` shows it.
+direct access. The built-in `demo-erp` profile shows it.
 
 ## What happens when the ERP does not answer
 

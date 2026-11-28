@@ -1,5 +1,6 @@
 import sqlite3
 from decimal import Decimal
+from importlib.resources import files
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,12 +19,10 @@ from quoteproof.graph import QuoteReviewPipeline
 from quoteproof.models import (
     ApprovalRecord,
     BusinessRules,
-    ERPEvidence,
     FindingEffect,
     GateDecision,
     OutboundRules,
     QuoteDraft,
-    QuoteItem,
 )
 from quoteproof.profile import ProfileError, load_profile, parse_profile
 from quoteproof.scenarios import load_scenario
@@ -49,7 +48,12 @@ def quote(**overrides) -> QuoteDraft:
         "destination_country": "DE",
         "currency": "EUR",
         "items": [
-            {"sku": "GB-4471", "description": "Planetary gearbox 40:1", "quantity": "4", "unit_price": "1850.00"}
+            {
+                "sku": "GB-4471",
+                "description": "Planetary gearbox 40:1",
+                "quantity": "4",
+                "unit_price": "1850.00",
+            }
         ],
         "discount_rate": "0",
         "net_total": "7400.00",
@@ -62,7 +66,9 @@ def quote(**overrides) -> QuoteDraft:
 
 @pytest.fixture
 def erp() -> StaticAdapter:
-    return StaticAdapter.from_file("demo_erp/export.json", label="test-erp")
+    return StaticAdapter.from_file(
+        str(files("quoteproof").joinpath("data", "demo_erp", "export.json")), label="test-erp"
+    )
 
 
 # --- Profiles -----------------------------------------------------------------
@@ -78,13 +84,20 @@ def test_default_profile_keeps_demo_behaviour() -> None:
 
 def test_placeholder_rule_routes_to_review() -> None:
     profile = parse_profile(
-        {"rules": {"maximum_discount_without_approval": {"value": "0.2", "status": "placeholder"}}},
+        {
+            "rules": {
+                "maximum_discount_without_approval": {"value": "0.2", "status": "placeholder"}
+            }
+        },
         "t",
     )
     result = QuoteReviewPipeline(profile=profile).run(load_scenario("pass"))
     assert result.gate is GateDecision.REQUIRES_HUMAN_REVIEW
     assert "QP-RULE-001" in codes(result.findings)
-    assert result.rule_provenance["maximum_discount_without_approval"].status.value == "placeholder"
+    assert (
+        result.rule_provenance["maximum_discount_without_approval"].status.value
+        == "placeholder"
+    )
 
 
 def test_unknown_rule_and_missing_profile_fail_loudly() -> None:
@@ -167,11 +180,13 @@ def test_sql_adapter_reads_an_unknown_erp_through_its_data_tier(tmp_path, monkey
 
     evidence = collect_evidence(
         adapter,
-        quote(items=[
-            {"sku": "GB-4471", "description": "x", "quantity": "1", "unit_price": "1850"},
-            {"sku": "SV-200", "description": "y", "quantity": "1", "unit_price": "2400"},
-            {"sku": "MISSING", "description": "z", "quantity": "1", "unit_price": "1"},
-        ]),
+        quote(
+            items=[
+                {"sku": "GB-4471", "description": "x", "quantity": "1", "unit_price": "1850"},
+                {"sku": "SV-200", "description": "y", "quantity": "1", "unit_price": "2400"},
+                {"sku": "MISSING", "description": "z", "quantity": "1", "unit_price": "1"},
+            ]
+        ),
     )
     assert evidence.status == "ok"
     gearbox = evidence.items["GB-4471"]
@@ -234,7 +249,9 @@ def test_read_only_check_is_enforced_when_the_profile_loads() -> None:
 
 def test_nolock_hint_and_casts_are_allowed() -> None:
     check_read_only("SELECT a FROM items WITH (NOLOCK) WHERE sku = :sku")
-    sql, params = translate_placeholders("SELECT a::text FROM t WHERE sku = :sku", "qmark", {"sku": "A"})
+    sql, params = translate_placeholders(
+        "SELECT a::text FROM t WHERE sku = :sku", "qmark", {"sku": "A"}
+    )
     assert sql == "SELECT a::text FROM t WHERE sku = ?"
     assert params == ["A"]
 
@@ -246,10 +263,16 @@ def test_nolock_hint_and_casts_are_allowed() -> None:
         ("numeric", "SELECT * FROM t WHERE a = :1 AND b = :2", ["1", "2"]),
         ("named", "SELECT * FROM t WHERE a = :sku AND b = :name", {"sku": "1", "name": "2"}),
         ("format", "SELECT * FROM t WHERE a = %s AND b = %s", ["1", "2"]),
-        ("pyformat", "SELECT * FROM t WHERE a = %(sku)s AND b = %(name)s", {"sku": "1", "name": "2"}),
+        (
+            "pyformat",
+            "SELECT * FROM t WHERE a = %(sku)s AND b = %(name)s",
+            {"sku": "1", "name": "2"},
+        ),
     ],
 )
-def test_placeholders_follow_the_driver_paramstyle(style, expected_sql, expected_params) -> None:
+def test_placeholders_follow_the_driver_paramstyle(
+    style, expected_sql, expected_params
+) -> None:
     sql, params = translate_placeholders(
         "SELECT * FROM t WHERE a = :sku AND b = :name", style, {"sku": "1", "name": "2"}
     )
@@ -284,39 +307,68 @@ def test_minimum_margin_is_added_to_the_floor(erp) -> None:
 
 
 def test_list_price_deviation_and_unknown_item_need_review(erp) -> None:
-    q = quote(items=[
-        {"sku": "GB-4471", "description": "x", "quantity": "1", "unit_price": "2100.00"},
-        {"sku": "FANTASY-1", "description": "invented", "quantity": "1", "unit_price": "10"},
-    ], net_total="2110.00")
+    q = quote(
+        items=[
+            {"sku": "GB-4471", "description": "x", "quantity": "1", "unit_price": "2100.00"},
+            {
+                "sku": "FANTASY-1",
+                "description": "invented",
+                "quantity": "1",
+                "unit_price": "10",
+            },
+        ],
+        net_total="2110.00",
+    )
     findings = validate_against_erp(q, collect_evidence(erp, q), BusinessRules(), True)
     assert {"QP-PRICE-002", "QP-ERP-002"} <= set(codes(findings))
     assert all(f.effect is FindingEffect.REVIEW for f in findings)
 
 
 def test_erp_export_flag_overrides_the_quotation(erp) -> None:
-    q = quote(items=[{"sku": "SV-200", "description": "Servo drive", "quantity": "1", "unit_price": "2400"}],
-              net_total="2400.00", controlled_goods=False)
+    q = quote(
+        items=[
+            {
+                "sku": "SV-200",
+                "description": "Servo drive",
+                "quantity": "1",
+                "unit_price": "2400",
+            }
+        ],
+        net_total="2400.00",
+        controlled_goods=False,
+    )
     findings = validate_against_erp(q, collect_evidence(erp, q), BusinessRules(), True)
     assert "QP-EXPORT-002" in codes(findings)
 
 
 def test_blocked_customer_blocks_and_credit_hold_reviews(erp) -> None:
     blocked = quote(customer="Old Account Trading GmbH")
-    assert "QP-ERP-004" in codes(validate_against_erp(blocked, collect_evidence(erp, blocked), BusinessRules(), True))
+    assert "QP-ERP-004" in codes(
+        validate_against_erp(blocked, collect_evidence(erp, blocked), BusinessRules(), True)
+    )
     held = quote(customer="Helvetia Precision SA")
-    assert "QP-ERP-005" in codes(validate_against_erp(held, collect_evidence(erp, held), BusinessRules(), True))
+    assert "QP-ERP-005" in codes(
+        validate_against_erp(held, collect_evidence(erp, held), BusinessRules(), True)
+    )
 
 
 def test_blocked_item_and_foreign_currency_price(erp) -> None:
-    q = quote(items=[{"sku": "LEGACY-07", "description": "Encoder", "quantity": "1", "unit_price": "310"}],
-              net_total="310.00", currency="CHF")
+    q = quote(
+        items=[
+            {"sku": "LEGACY-07", "description": "Encoder", "quantity": "1", "unit_price": "310"}
+        ],
+        net_total="310.00",
+        currency="CHF",
+    )
     found = codes(validate_against_erp(q, collect_evidence(erp, q), BusinessRules(), True))
     assert "QP-ERP-006" in found
     assert "QP-PRICE-003" in found
 
 
 def test_required_erp_without_adapter_needs_review() -> None:
-    assert codes(validate_against_erp(quote(), None, BusinessRules(), erp_required=True)) == ["QP-ERP-001"]
+    assert codes(validate_against_erp(quote(), None, BusinessRules(), erp_required=True)) == [
+        "QP-ERP-001"
+    ]
     assert validate_against_erp(quote(), None, BusinessRules(), erp_required=False) == []
 
 
@@ -331,22 +383,35 @@ def test_internal_language_in_the_customer_document_blocks() -> None:
 
 
 def test_word_boundaries_avoid_false_alarms() -> None:
-    q = quote(customer_document="International shipping, Interne Anforderungen erfüllt? Yes. Margins of the sheet: 20 mm.")
-    assert validate_outbound_document(q, OutboundRules(forbidden_terms=("internal", "margin")), None) == []
+    q = quote(
+        customer_document="International shipping, Interne Anforderungen erfüllt? Yes. Margins of the sheet: 20 mm."
+    )
+    assert (
+        validate_outbound_document(
+            q, OutboundRules(forbidden_terms=("internal", "margin")), None
+        )
+        == []
+    )
 
 
 def test_internal_cost_figure_and_other_customer_names_block(erp) -> None:
-    q = quote(customer_document=(
-        "Planetengetriebe 40:1 zu 1.850,00 EUR. Einstand bei uns 1.240,00 EUR – "
-        "wie schon bei Nordwerk Antriebstechnik AG geliefert."
-    ))
-    findings = validate_outbound_document(q, OutboundRules(forbidden_terms=()), collect_evidence(erp, q))
+    q = quote(
+        customer_document=(
+            "Planetengetriebe 40:1 zu 1.850,00 EUR. Einstand bei uns 1.240,00 EUR - "
+            "wie schon bei Nordwerk Antriebstechnik AG geliefert."
+        )
+    )
+    findings = validate_outbound_document(
+        q, OutboundRules(forbidden_terms=()), collect_evidence(erp, q)
+    )
     assert codes(findings) == ["QP-OUT-002", "QP-OUT-003"]
     assert findings[1].actual == "Nordwerk Antriebstechnik AG"
 
 
 def test_addressee_name_and_list_price_are_allowed(erp) -> None:
-    q = quote(customer_document="Sehr geehrte Damen und Herren der Acme Manufacturing GmbH, Preis 1.850,00 EUR.")
+    q = quote(
+        customer_document="Sehr geehrte Damen und Herren der Acme Manufacturing GmbH, Preis 1.850,00 EUR."
+    )
     assert validate_outbound_document(q, OutboundRules(), collect_evidence(erp, q)) == []
 
 
@@ -355,31 +420,53 @@ def test_addressee_name_and_list_price_are_allowed(erp) -> None:
 
 def test_price_drop_with_unchanged_scope_means_margin_moved() -> None:
     first = quote()
-    counter = quote(revision=2, items=[
-        {"sku": "GB-4471", "description": "Planetary gearbox 40:1", "quantity": "4", "unit_price": "1700.00"}
-    ], net_total="6800.00")
+    counter = quote(
+        revision=2,
+        items=[
+            {
+                "sku": "GB-4471",
+                "description": "Planetary gearbox 40:1",
+                "quantity": "4",
+                "unit_price": "1700.00",
+            }
+        ],
+        net_total="6800.00",
+    )
     findings = validate_revision(counter, first, None, "x" * 64)
     assert codes(findings) == ["QP-REV-001"]
 
 
 def test_scope_change_is_not_reported_as_margin_move() -> None:
     first = quote()
-    smaller = quote(revision=2, items=[
-        {"sku": "GB-4471", "description": "Planetary gearbox 40:1", "quantity": "2", "unit_price": "1850.00"}
-    ], net_total="3700.00")
+    smaller = quote(
+        revision=2,
+        items=[
+            {
+                "sku": "GB-4471",
+                "description": "Planetary gearbox 40:1",
+                "quantity": "2",
+                "unit_price": "1850.00",
+            }
+        ],
+        net_total="3700.00",
+    )
     assert validate_revision(smaller, first, None, "x" * 64) == []
 
 
 def test_revision_number_must_increase_and_belong_to_the_same_quote() -> None:
     assert codes(validate_revision(quote(), quote(), None, "x" * 64)) == ["QP-REV-002"]
-    assert codes(validate_revision(quote(quote_id="Q-2", revision=2), quote(), None, "x" * 64)) == ["QP-REV-003"]
+    assert codes(
+        validate_revision(quote(quote_id="Q-2", revision=2), quote(), None, "x" * 64)
+    ) == ["QP-REV-003"]
 
 
 def test_approval_lapses_when_anything_material_changes() -> None:
     rules = BusinessRules()
     original = quote()
     basis = decision_basis_hash(original, rules, "default")
-    approval = ApprovalRecord(approved_by="M. Muster", approved_at="2026-11-27T10:00:00Z", decision_basis_hash=basis)
+    approval = ApprovalRecord(
+        approved_by="M. Muster", approved_at="2026-11-27T10:00:00Z", decision_basis_hash=basis
+    )
     assert validate_revision(original, None, approval, basis) == []
 
     for change in (
@@ -388,9 +475,15 @@ def test_approval_lapses_when_anything_material_changes() -> None:
         {"discount_rate": "0.02", "net_total": "7252.00"},
     ):
         changed = original.model_copy(update=change)
-        new_basis = decision_basis_hash(QuoteDraft.model_validate(changed.model_dump()), rules, "default")
+        new_basis = decision_basis_hash(
+            QuoteDraft.model_validate(changed.model_dump(exclude_computed_fields=True)),
+            rules,
+            "default",
+        )
         assert new_basis != basis
-        assert codes(validate_revision(changed, None, approval, new_basis)) == ["QP-APPROVAL-001"]
+        assert codes(validate_revision(changed, None, approval, new_basis)) == [
+            "QP-APPROVAL-001"
+        ]
 
     stricter = BusinessRules(maximum_discount_without_approval=Decimal("0.05"))
     assert decision_basis_hash(original, stricter, "default") != basis
@@ -404,18 +497,27 @@ def test_legal_form_and_punctuation_do_not_hide_a_match() -> None:
         "RESTRICTED ENTITY EXAMPLE LIMITED"
     )
     findings = screen_restricted_parties(
-        "Restricted Entity Example Limited", ("Restricted Entity Example Ltd",), "POL-SANCTIONS-001"
+        "Restricted Entity Example Limited",
+        ("Restricted Entity Example Ltd",),
+        "POL-SANCTIONS-001",
     )
     assert codes(findings) == ["QP-SANCTIONS-001"]
 
 
 def test_near_match_goes_to_review_and_unrelated_names_pass() -> None:
     near = screen_restricted_parties(
-        "Restricted Entitiy Exampel GmbH", ("Restricted Entity Example Ltd",), "POL-SANCTIONS-001"
+        "Restricted Entitiy Exampel GmbH",
+        ("Restricted Entity Example Ltd",),
+        "POL-SANCTIONS-001",
     )
     assert codes(near) == ["QP-SANCTIONS-002"]
     assert near[0].effect is FindingEffect.REVIEW
-    assert screen_restricted_parties("Acme Manufacturing GmbH", ("Restricted Entity Example Ltd",), "P") == []
+    assert (
+        screen_restricted_parties(
+            "Acme Manufacturing GmbH", ("Restricted Entity Example Ltd",), "P"
+        )
+        == []
+    )
 
 
 # --- End to end with an ERP-backed profile ----------------------------------------
@@ -429,14 +531,25 @@ def test_erp_profile_end_to_end_is_traceable() -> None:
     assert len(clean.decision_basis_hash) == 64
     assert [e.status for e in clean.audit_trail if e.node == "erp_lookup"] == ["OK"]
 
-    risky = pipeline.run(quote(
-        customer="Sample Embargoed Trading FZ-E",
-        items=[{"sku": "SV-200", "description": "Servo drive", "quantity": "1", "unit_price": "1500"}],
-        net_total="1500.00",
-        customer_document="Preis inkl. Marge: 1500 EUR",
-    ))
+    risky = pipeline.run(
+        quote(
+            customer="Sample Embargoed Trading FZ-E",
+            items=[
+                {
+                    "sku": "SV-200",
+                    "description": "Servo drive",
+                    "quantity": "1",
+                    "unit_price": "1500",
+                }
+            ],
+            net_total="1500.00",
+            customer_document="Preis inkl. Marge: 1500 EUR",
+        )
+    )
     assert risky.gate is GateDecision.BLOCKED
-    assert {"QP-SANCTIONS-001", "QP-PRICE-001", "QP-EXPORT-002", "QP-OUT-001"} <= set(codes(risky.findings))
+    assert {"QP-SANCTIONS-001", "QP-PRICE-001", "QP-EXPORT-002", "QP-OUT-001"} <= set(
+        codes(risky.findings)
+    )
     retrieved = {policy.id for policy in risky.retrieved_policies}
     assert all(finding.policy_id in retrieved for finding in risky.findings)
 
@@ -454,7 +567,9 @@ def test_unreachable_erp_never_passes(tmp_path) -> None:
         def customer_names(self):
             return []
 
-    result = QuoteReviewPipeline(profile=load_profile("demo-erp"), erp=Broken()).run(load_scenario("pass"))
+    result = QuoteReviewPipeline(profile=load_profile("demo-erp"), erp=Broken()).run(
+        load_scenario("pass")
+    )
     assert result.gate is GateDecision.REQUIRES_HUMAN_REVIEW
     assert "QP-ERP-001" in codes(result.findings)
 
@@ -468,10 +583,19 @@ def test_api_exposes_profile_without_secrets_and_reviews_revisions() -> None:
     assert "connection_env" not in str(profile)
 
     first = load_scenario("pass")
-    second = first.model_copy(update={"revision": 2, "discount_rate": Decimal("0.15"), "net_total": Decimal("1700.00")})
+    second = first.model_copy(
+        update={
+            "revision": 2,
+            "discount_rate": Decimal("0.15"),
+            "net_total": Decimal("1700.00"),
+        }
+    )
     response = client.post(
         "/review/revision",
-        json={"quote": second.model_dump(mode="json"), "previous": first.model_dump(mode="json")},
+        json={
+            "quote": second.model_dump(mode="json", exclude_computed_fields=True),
+            "previous": first.model_dump(mode="json", exclude_computed_fields=True),
+        },
     )
     assert response.status_code == 200
     body = response.json()
@@ -481,7 +605,11 @@ def test_api_exposes_profile_without_secrets_and_reviews_revisions() -> None:
 
 @pytest.mark.parametrize(
     "spelling",
-    ["Sample Embargoed Trading FZ-E", "Sample Embargoed Trading F.Z.E.", "SAMPLE-EMBARGOED TRADING fze"],
+    [
+        "Sample Embargoed Trading FZ-E",
+        "Sample Embargoed Trading F.Z.E.",
+        "SAMPLE-EMBARGOED TRADING fze",
+    ],
 )
 def test_punctuation_inside_the_legal_form_does_not_hide_a_match(spelling) -> None:
     findings = screen_restricted_parties(spelling, ("Sample Embargoed Trading FZE",), "P")
@@ -489,4 +617,81 @@ def test_punctuation_inside_the_legal_form_does_not_hide_a_match(spelling) -> No
 
 
 def test_short_suffixes_do_not_create_false_matches() -> None:
-    assert screen_restricted_parties("Atlas Mechanik", ("Atl Mechanik",), "P", review_threshold=0.99) == []
+    assert (
+        screen_restricted_parties(
+            "Atlas Mechanik", ("Atl Mechanik",), "P", review_threshold=0.99
+        )
+        == []
+    )
+
+
+# --- Profiles kept outside the repository and the onboarding check ------------
+
+
+def test_customer_profile_from_external_folder(tmp_path, monkeypatch) -> None:
+    (tmp_path / "export.json").write_text(
+        '{"customers": [{"customer_id": "K-9", "name": "Kunde Neun GmbH"}],'
+        ' "items": [{"sku": "X-1", "list_price": "100", "cost_floor": "60", "currency": "EUR"}]}',
+        "utf-8",
+    )
+    (tmp_path / "restricted.txt").write_text("# list\nEmbargoed Example Ltd\n", "utf-8")
+    (tmp_path / "kunde.toml").write_text(
+        'profile_id = "kunde"\n'
+        "[rules]\n"
+        'currency = "EUR"\n'
+        "[restricted_parties]\n"
+        'source_file = "restricted.txt"\n'
+        "[erp]\n"
+        'adapter = "static"\n'
+        "required = true\n"
+        'file = "export.json"\n',
+        "utf-8",
+    )
+    monkeypatch.setenv("QUOTEPROOF_TENANT_PROFILE_DIR", str(tmp_path))
+    monkeypatch.setenv("QUOTEPROOF_TENANT_PROFILE", "kunde")
+    profile = load_profile()
+    assert profile.profile_id == "kunde"
+    assert profile.restricted_parties.load_entities() == ("Embargoed Example Ltd",)
+
+    pipeline = QuoteReviewPipeline(profile=profile)
+    clean = pipeline.run(
+        quote(
+            customer="Kunde Neun GmbH",
+            items=[{"sku": "X-1", "description": "Teil", "quantity": "1", "unit_price": "100"}],
+            net_total="100.00",
+        )
+    )
+    assert clean.gate is GateDecision.PASS
+    blocked = pipeline.run(quote(customer="Embargoed Example Limited"))
+    assert "QP-SANCTIONS-001" in codes(blocked.findings)
+
+
+def test_profile_names_cannot_escape_the_profile_folder() -> None:
+    with pytest.raises(ProfileError):
+        load_profile("../secrets")
+
+
+def test_check_profile_reports_erp_lookup(capsys) -> None:
+    from quoteproof.check_profile import main
+
+    assert (
+        main(
+            [
+                "demo-erp",
+                "--sku",
+                "SV-200",
+                "--sku",
+                "NOPE",
+                "--customer-name",
+                "Helvetia Precision SA",
+            ]
+        )
+        == 0
+    )
+    out = capsys.readouterr().out
+    assert "demo-erp" in out
+    assert "Item SV-200" in out
+    assert "Item NOPE: not found" in out
+    assert "credit_hold" in out
+    assert main(["default"]) == 0
+    assert main(["does-not-exist"]) == 2

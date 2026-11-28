@@ -10,10 +10,11 @@ from __future__ import annotations
 
 import argparse
 import sys
+from decimal import Decimal
 
 from .erp import build_adapter
-from .models import QuoteDraft, QuoteItem
 from .erp.base import collect_evidence
+from .models import QuoteDraft, QuoteItem
 from .profile import ProfileError, load_profile
 
 
@@ -28,15 +29,21 @@ def main(argv: list[str] | None = None) -> int:
     try:
         profile = load_profile(args.profile)
         adapter = build_adapter(profile.erp.adapter, profile.erp.options)
-        entities = profile.restricted_parties.load_entities() if profile.restricted_parties else ()
+        entities = (
+            profile.restricted_parties.load_entities() if profile.restricted_parties else ()
+        )
     except (ProfileError, ValueError) as exc:
         print(f"PROFILE ERROR: {exc}")
         return 2
 
-    print(f"Profile:      {profile.profile_id} – {profile.description}")
+    print(f"Profile:      {profile.profile_id} - {profile.description}")
     print(f"Currencies:   {', '.join(profile.rules.permitted_currencies())}")
     for name, provenance in sorted(profile.rules.provenance.items()):
-        owner = f" by {provenance.confirmed_by} on {provenance.confirmed_on}" if provenance.confirmed_by else ""
+        owner = (
+            f" by {provenance.confirmed_by} on {provenance.confirmed_on}"
+            if provenance.confirmed_by
+            else ""
+        )
         print(f"Rule:         {name}: {provenance.status.value}{owner}")
     print(f"Restricted:   {len(entities)} entries")
     print(f"ERP adapter:  {profile.erp.adapter} (required: {profile.erp.required})")
@@ -49,13 +56,20 @@ def main(argv: list[str] | None = None) -> int:
         quote_id="CHECK",
         customer=args.customer_name,
         customer_id=args.customer_id,
-        items=[QuoteItem(sku=sku, description="check", quantity=1, unit_price=0) for sku in args.sku],
+        items=[
+            QuoteItem(
+                sku=sku, description="check", quantity=Decimal("1"), unit_price=Decimal("0")
+            )
+            for sku in args.sku
+        ],
     )
     evidence = collect_evidence(adapter, probe)
     if evidence is None or evidence.status != "ok":
-        print(f"ERP lookup:   FAILED – {evidence.error if evidence else 'no adapter'}")
+        print(f"ERP lookup:   FAILED - {evidence.error if evidence else 'no adapter'}")
         return 1
-    print(f"Customer:     {evidence.customer.model_dump(exclude_none=True) if evidence.customer else 'not found'}")
+    print(
+        f"Customer:     {evidence.customer.model_dump(exclude_none=True) if evidence.customer else 'not found'}"
+    )
     for sku, item in evidence.items.items():
         print(f"Item {sku}: {item.model_dump(exclude_none=True)}")
     for sku in evidence.missing_skus:

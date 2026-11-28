@@ -9,7 +9,9 @@
 #      It is never written into this file.
 #   3. Map the views' column names below. Only the column names change;
 #      no code changes are needed.
-#   4. Run `python -m quoteproof.check_profile example-sql-3tier` to verify.
+#   4. Keep the filled-in copy outside this public repository and point
+#      QUOTEPROOF_TENANT_PROFILE_DIR at its folder.
+#   5. Run `python -m quoteproof.check_profile <name>` to verify.
 profile_id = "example-sql-3tier"
 description = "Unknown three-tier ERP, read via its SQL data tier (template)."
 

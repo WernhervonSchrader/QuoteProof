@@ -23,10 +23,20 @@ class FakeResponses:
         return SimpleNamespace(output_parsed=self.output)
 
 
-def test_openai_draft_is_structured_and_quote_id_is_authoritative() -> None:
-    generated = GeneratedQuoteDraft.model_validate(
-        load_scenario("pass").model_copy(update={"quote_id": "wrong-id"}).model_dump()
+def generated_scenario(name: str, **updates: object) -> GeneratedQuoteDraft:
+    quote = load_scenario(name).model_copy(update=updates)
+    # Revision, ERP customer id and customer document are set by the governed
+    # workflow, never by the drafting model, so they are not part of its schema.
+    payload = quote.model_dump(
+        mode="json",
+        exclude_computed_fields=True,
+        exclude={"revision", "customer_id", "customer_document"},
     )
+    return GeneratedQuoteDraft.model_validate(payload)
+
+
+def test_openai_draft_is_structured_and_quote_id_is_authoritative() -> None:
+    generated = generated_scenario("pass", quote_id="wrong-id")
     responses = FakeResponses(generated)
     drafter = OpenAIQuoteDrafter(
         client=SimpleNamespace(responses=responses),
@@ -42,6 +52,7 @@ def test_openai_draft_is_structured_and_quote_id_is_authoritative() -> None:
     assert responses.call is not None
     assert responses.call["text_format"] is GeneratedQuoteDraft
     assert responses.call["model"] == "test-model"
+    assert responses.call["max_output_tokens"] == 1_200
 
 
 def test_missing_structured_output_fails_closed() -> None:
@@ -55,11 +66,7 @@ def test_missing_structured_output_fails_closed() -> None:
 
 
 def test_missing_total_is_calculated_deterministically_before_review() -> None:
-    generated = GeneratedQuoteDraft.model_validate(
-        load_scenario("pass").model_copy(
-            update={"discount_rate": Decimal("0.15"), "net_total": None}
-        ).model_dump()
-    )
+    generated = generated_scenario("pass", discount_rate=Decimal("0.15"), net_total=None)
     drafter = OpenAIQuoteDrafter(
         client=SimpleNamespace(responses=FakeResponses(generated)),
         model="test-model",
@@ -77,11 +84,7 @@ def test_missing_total_is_calculated_deterministically_before_review() -> None:
 
 
 def test_explicit_inconsistent_total_remains_declared_and_blocks() -> None:
-    generated = GeneratedQuoteDraft.model_validate(
-        load_scenario("pass").model_copy(
-            update={"net_total": Decimal("100.00")}
-        ).model_dump()
-    )
+    generated = generated_scenario("pass", net_total=Decimal("100.00"))
     drafter = OpenAIQuoteDrafter(
         client=SimpleNamespace(responses=FakeResponses(generated)),
         model="test-model",

@@ -1,41 +1,64 @@
-# Secret handling
+# Security policy
 
-QuoteProof must never receive an OpenAI API key through a browser form, issue,
-pull request, repository file, commit, log, screenshot, or chat message.
+QuoteProof is a local release candidate, not a production service. Security
+reports should use GitHub's private **Report a vulnerability** / Security
+Advisory channel when it is available. Otherwise contact the repository owner
+through GitHub first and request a private channel. Do not put keys, tokens,
+customer data, exploit payloads, or other sensitive material in an issue, pull
+request, discussion, screenshot, log, or chat message.
 
-## Add the protected repository secret
+## Supported state
 
-1. Open [Add repository secret](https://github.com/WernhervonSchrader/QuoteProof/settings/secrets/actions/new).
-2. Enter `OPENAI_API_KEY` as the secret name.
-3. Paste the OpenAI project key into the secret value field.
-4. Select **Add secret**.
-
-GitHub stores the value encrypted and only makes it available to workflows that
-explicitly reference `secrets.OPENAI_API_KEY`. The workflow in
-`.github/workflows/check-openai-secret.yml` checks only that the secret exists
-and has the expected prefix. It never prints the value and makes no API request.
-
-## Verify without exposing the value
-
-1. Open the repository's **Actions** tab.
-2. Select **Check OpenAI secret**.
-3. Select **Run workflow**.
-4. Confirm that the job finishes successfully.
+Only the current `main` candidate and the exact SHA named by a release-evidence
+report are eligible for review. There is no published supported release or
+response-time commitment.
 
 ## Runtime boundary
 
-A GitHub Actions secret is not automatically available to a browser or to an
-unrelated hosting platform. A deployment workflow must pass it directly into
-the server-side runtime. Never rename it with a `NEXT_PUBLIC_` prefix.
+- Prepared scenarios are synthetic and require no external provider.
+- Live drafting is disabled by default with
+  `QUOTEPROOF_LIVE_DRAFT_ENABLED=false`.
+- The kill switch defaults to
+  `QUOTEPROOF_LIVE_DRAFT_KILL_SWITCH=true`.
+- Enabling flags and adding a key are insufficient: a persistent distributed
+  usage guard must also allow the request.
+- Provider secret resolution occurs only after configuration, enabled/kill,
+  access, usage, and input-validation gates pass.
+- Provider timeout, retry count, and output size are explicitly bounded.
+- Client responses and operational logs use sanitized codes and allowlisted
+  metadata only.
 
-## Disposable jury access
+The disposable access code is not an OpenAI credential and is not a complete
+budget control. CORS is not authentication. No in-process counter is represented
+as deployment-wide protection.
 
-The live `POST /draft-and-review` endpoint also requires the request header
-`X-QuoteProof-Demo-Key`. The API validates it in constant time against the
-server-side `QUOTEPROOF_DEMO_KEY` environment secret before creating an OpenAI
-client. Use a random value of at least 12 characters.
+## Secret handling
 
-This is a disposable competition credential, not an OpenAI account or API key.
-It may be shared with judges, rotated after the judging period, and must never
-be committed to this repository or embedded in browser source. Prepared
-deterministic scenarios remain available without this credential.
+Never submit an OpenAI key through a browser form or commit it to this
+repository. Runtime secrets belong in an operator-controlled secret store and
+must never use a browser-exposed prefix. Rotation must be performed and verified
+by an authorized operator immediately before any separately approved live
+deployment; this repository does not contain or prove that rotation.
+
+No regular CI job resolves `OPENAI_API_KEY`, and no regular test performs live
+OpenAI I/O.
+
+## Historical evidence and current limits
+
+`DEPLOYMENT_EVIDENCE`: a GitHub Actions workflow run on 18 July 2026 confirmed
+that a protected `OPENAI_API_KEY` existed at that time. That observation does
+not prove the current secret inventory, current validity, scope, revocation
+state, ownership, or Vercel runtime configuration. The verification workflow is
+not part of the release-candidate tree.
+
+For a later expressly authorized live smoke test, an authorized operator must
+provide the runtime key through the approved deployment secret mechanism or test
+the already configured deployment environment. A live test is not required for
+this release-readiness work and cannot by itself authorize production use.
+
+## Disclosure boundaries
+
+The project cannot promise confidentiality through public GitHub channels.
+After receiving a sanitized report, the maintainer should establish a private
+channel, reproduce without real data, assign severity and scope, prepare a fix,
+rerun all SHA-bound gates, and disclose only after an explicit decision.

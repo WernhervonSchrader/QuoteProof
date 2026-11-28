@@ -1,12 +1,22 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
 .venv/
+.clean-venv/
+.uv-cache/
+.audit-mirror/
+.tools/
 
 # Never commit local secrets.
 .env
 .env.*
-!.env.example
+!/.env.example
 
 dist/
 build/
+artifacts/

@@ -1,6 +1,6 @@
 # Demo profile with an ERP connected through a file export.
 # Shows price-floor, list-price, ERP export-flag and outbound-leak controls
-# without a live system. Run with QUOTEPROOF_PROFILE=demo-erp.
+# without a live system. Run with QUOTEPROOF_TENANT_PROFILE=demo-erp.
 profile_id = "demo-erp"
 description = "Demo with ERP evidence from demo_erp/export.json."
 
@@ -31,5 +31,5 @@ label = "simulated restricted-party fixture"
 [erp]
 adapter = "static"
 required = true
-file = "demo_erp/export.json"
+file = "../demo_erp/export.json"
 label = "demo-erp-export"

@@ -21,9 +21,11 @@ from __future__ import annotations
 import importlib
 import os
 import re
-from contextlib import contextmanager
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager, suppress
 from decimal import Decimal, InvalidOperation
-from typing import Any, Callable, Iterator
+from types import ModuleType
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -75,13 +77,17 @@ def check_read_only(sql: str) -> str:
     return statement
 
 
-def translate_placeholders(sql: str, paramstyle: str, params: dict[str, Any]) -> tuple[str, Any]:
+def translate_placeholders(
+    sql: str, paramstyle: str, params: dict[str, Any]
+) -> tuple[str, Any]:
     """Turn ``:name`` placeholders into the driver's paramstyle (PEP 249)."""
 
     names = _PLACEHOLDER.findall(sql)
     missing = [name for name in names if name not in params]
     if missing:
-        raise SQLConfigError(f"Query uses undefined parameter(s): {', '.join(sorted(set(missing)))}")
+        raise SQLConfigError(
+            f"Query uses undefined parameter(s): {', '.join(sorted(set(missing)))}"
+        )
     if paramstyle == "named":
         return sql, {name: params[name] for name in names}
     if paramstyle in {"format", "pyformat"}:
@@ -146,7 +152,7 @@ class SQLAdapter:
     ) -> None:
         if "item" not in queries:
             raise SQLConfigError("The SQL adapter needs at least an 'item' query.")
-        for name, spec in queries.items():
+        for spec in queries.values():
             check_read_only(spec.sql)
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]*", driver):
             raise SQLConfigError(f"Invalid driver module name '{driver}'.")
@@ -158,7 +164,9 @@ class SQLAdapter:
         self.adapter_id = f"{label}:{driver}"
 
     @classmethod
-    def from_options(cls, options: dict[str, Any], connect: Callable[[], Any] | None = None) -> "SQLAdapter":
+    def from_options(
+        cls, options: dict[str, Any], connect: Callable[[], Any] | None = None
+    ) -> SQLAdapter:
         raw_queries = options.get("queries") or {}
         queries = {name: QuerySpec(**spec) for name, spec in raw_queries.items()}
         return cls(
@@ -170,7 +178,7 @@ class SQLAdapter:
             label=options.get("label", "sql"),
         )
 
-    def _module(self):
+    def _module(self) -> ModuleType:
         try:
             return importlib.import_module(self.driver)
         except ImportError as exc:
@@ -188,16 +196,14 @@ class SQLAdapter:
                 raise ERPUnavailable(f"Environment variable {self.connection_env} is not set.")
             try:
                 conn = module.connect(dsn)
-            except Exception as exc:  # noqa: BLE001 - never leak the DSN
+            except Exception as exc:
                 raise ERPUnavailable(f"Could not connect via {self.driver}.") from exc
-            paramstyle = self._paramstyle or getattr(module, "paramstyle", "qmark")
+            paramstyle = self._paramstyle or str(getattr(module, "paramstyle", "qmark"))
         try:
             yield conn, paramstyle
         finally:
-            try:
+            with suppress(Exception):
                 conn.close()
-            except Exception:  # noqa: BLE001
-                pass
 
     def _rows(self, name: str, params: dict[str, Any]) -> list[dict[str, Any]]:
         spec = self.queries.get(name)
@@ -209,8 +215,8 @@ class SQLAdapter:
             try:
                 cursor.execute(sql, bound)
                 columns = [column[0] for column in cursor.description or []]
-                return [dict(zip(columns, row)) for row in cursor.fetchall()]
-            except Exception as exc:  # noqa: BLE001
+                return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
+            except Exception as exc:
                 raise ERPUnavailable(f"Query '{name}' failed.") from exc
             finally:
                 cursor.close()

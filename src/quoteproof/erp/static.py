@@ -13,13 +13,11 @@ from .base import ERPUnavailable
 class StaticAdapter:
     def __init__(self, data: dict[str, Any], label: str = "static") -> None:
         self.adapter_id = label
-        self._items = {
-            str(item["sku"]): item for item in data.get("items", [])
-        }
+        self._items = {str(item["sku"]): item for item in data.get("items", [])}
         self._customers = list(data.get("customers", []))
 
     @classmethod
-    def from_file(cls, path: str | Path, label: str | None = None) -> "StaticAdapter":
+    def from_file(cls, path: str | Path, label: str | None = None) -> StaticAdapter:
         file = Path(path)
         if not file.is_file():
             raise ERPUnavailable(f"ERP export not found: {file.name}")

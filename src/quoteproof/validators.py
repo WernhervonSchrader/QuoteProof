@@ -6,6 +6,7 @@ import re
 import unicodedata
 from decimal import Decimal
 from difflib import SequenceMatcher
+from typing import cast
 
 from .models import (
     ApprovalRecord,
@@ -91,7 +92,8 @@ def validate_sanctions(
                 policy_id="POL-SANCTIONS-001",
             )
         ]
-    entities = tuple(str(name) for name in policy.data.get("restricted_entities", []))
+    restricted_data = cast(list[object], policy.data.get("restricted_entities", []))
+    entities = tuple(str(name) for name in restricted_data)
     return screen_restricted_parties(
         quote.customer,
         entities + tuple(extra_entities),
@@ -186,10 +188,47 @@ def validate_rule_provenance(rules: BusinessRules) -> list[Finding]:
 
 
 _LEGAL_FORMS = {
-    "gmbh", "mbh", "ag", "kg", "ohg", "ug", "se", "eg", "ev", "co", "cokg", "kgaa",
-    "ltd", "limited", "llc", "inc", "incorporated", "corp", "corporation", "plc",
-    "llp", "lp", "sa", "sas", "sarl", "srl", "spa", "bv", "nv", "oy", "ab", "as",
-    "aps", "kft", "sro", "spzoo", "fze", "fzco", "fzc", "company", "the",
+    "gmbh",
+    "mbh",
+    "ag",
+    "kg",
+    "ohg",
+    "ug",
+    "se",
+    "eg",
+    "ev",
+    "co",
+    "cokg",
+    "kgaa",
+    "ltd",
+    "limited",
+    "llc",
+    "inc",
+    "incorporated",
+    "corp",
+    "corporation",
+    "plc",
+    "llp",
+    "lp",
+    "sa",
+    "sas",
+    "sarl",
+    "srl",
+    "spa",
+    "bv",
+    "nv",
+    "oy",
+    "ab",
+    "as",
+    "aps",
+    "kft",
+    "sro",
+    "spzoo",
+    "fze",
+    "fzco",
+    "fzc",
+    "company",
+    "the",
 }
 
 
@@ -200,7 +239,9 @@ def normalise_party_name(name: str) -> str:
     return " ".join(tokens)
 
 
-_SUFFIX_FORMS = tuple(sorted((form for form in _LEGAL_FORMS if len(form) >= 3), key=len, reverse=True))
+_SUFFIX_FORMS = tuple(
+    sorted((form for form in _LEGAL_FORMS if len(form) >= 3), key=len, reverse=True)
+)
 
 
 def compact_party_name(name: str) -> str:
@@ -237,7 +278,9 @@ def screen_restricted_parties(
         normalised = normalise_party_name(entity)
         if not normalised:
             continue
-        if normalised == candidate or compact_party_name(entity) == compact_party_name(customer):
+        if normalised == candidate or compact_party_name(entity) == compact_party_name(
+            customer
+        ):
             return [
                 Finding(
                     code="QP-SANCTIONS-001",
@@ -342,7 +385,7 @@ def validate_against_erp(
                 code="QP-ERP-002",
                 effect=FindingEffect.REVIEW,
                 message="Item not found in the ERP; its price has no system basis.",
-                field=f"items[{sku}]",
+                field=f"items.{sku}",
                 actual=sku,
                 policy_id="POL-ERP-001",
             )
@@ -353,7 +396,7 @@ def validate_against_erp(
         item = evidence.items.get(line.sku)
         if item is None:
             continue
-        field = f"items[{line.sku}]"
+        field = f"items.{line.sku}"
         if item.blocked_for_sale:
             findings.append(
                 Finding(
@@ -378,11 +421,13 @@ def validate_against_erp(
                 )
             )
             continue
-        effective = (line.unit_price * (Decimal("1") - quote.discount_rate)).quantize(Decimal("0.0001"))
+        effective = (line.unit_price * (Decimal("1") - quote.discount_rate)).quantize(
+            Decimal("0.0001")
+        )
         if item.cost_floor is not None:
-            floor = (item.cost_floor * (Decimal("1") + rules.minimum_margin_over_cost)).quantize(
-                Decimal("0.0001")
-            )
+            floor = (
+                item.cost_floor * (Decimal("1") + rules.minimum_margin_over_cost)
+            ).quantize(Decimal("0.0001"))
             if effective < floor:
                 findings.append(
                     Finding(
@@ -437,10 +482,17 @@ def _amount_variants(value: Decimal) -> set[str]:
     plain = f"{quantised:.2f}"
     integer, fraction = plain.split(".")
     grouped = f"{int(integer):,}"
-    variants = {plain, f"{integer},{fraction}", f"{grouped}.{fraction}", f"{grouped.replace(',', '.')},{fraction}"}
+    variants = {
+        plain,
+        f"{integer},{fraction}",
+        f"{grouped}.{fraction}",
+        f"{grouped.replace(',', '.')},{fraction}",
+    }
     if fraction == "00":
         variants.add(integer)
-    return {variant for variant in variants if len(variant.replace(".", "").replace(",", "")) >= 3}
+    return {
+        variant for variant in variants if len(variant.replace(".", "").replace(",", "")) >= 3
+    }
 
 
 def validate_outbound_document(
@@ -457,7 +509,9 @@ def validate_outbound_document(
         return []
 
     findings: list[Finding] = []
-    leaked_terms = sorted({term for term in outbound.forbidden_terms if _contains_term(text, term)})
+    leaked_terms = sorted(
+        {term for term in outbound.forbidden_terms if _contains_term(text, term)}
+    )
     if leaked_terms:
         findings.append(
             Finding(
@@ -477,7 +531,10 @@ def validate_outbound_document(
                 sku
                 for sku, item in evidence.items.items()
                 if item.cost_floor is not None
-                and any(_contains_term(text, variant) for variant in _amount_variants(item.cost_floor))
+                and any(
+                    _contains_term(text, variant)
+                    for variant in _amount_variants(item.cost_floor)
+                )
             )
             if leaked_costs:
                 findings.append(
@@ -574,7 +631,10 @@ def validate_revision(
                     policy_id="POL-REVISION-001",
                 )
             )
-        if _scope(quote) == _scope(previous) and quote.calculated_total() < previous.calculated_total():
+        if (
+            _scope(quote) == _scope(previous)
+            and quote.calculated_total() < previous.calculated_total()
+        ):
             findings.append(
                 Finding(
                     code="QP-REV-001",

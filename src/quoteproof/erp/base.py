@@ -38,7 +38,7 @@ def collect_evidence(adapter: ERPAdapter | None, quote: QuoteDraft) -> ERPEviden
         names = adapter.customer_names()
     except ERPUnavailable as exc:
         return ERPEvidence(adapter=adapter.adapter_id, status="unavailable", error=str(exc))
-    except Exception as exc:  # noqa: BLE001 - any adapter failure must fail closed
+    except Exception as exc:
         return ERPEvidence(
             adapter=adapter.adapter_id,
             status="unavailable",

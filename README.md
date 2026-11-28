@@ -1,220 +1,199 @@
 # QuoteProof
 
-> **AI-generated quotations you can actually approve.**
+QuoteProof is a backend-only Python demonstration of governed quotation review.
+It separates optional model-assisted drafting and advisory reasoning from the
+deterministic controls that own the result.
 
-**QuoteProof is not another AI quote generator. It is a proof and governance layer for AI-assisted commercial decisions.**
+The repository is an Apache-2.0-licensed technical release candidate. It is not
+production-approved, legal or compliance advice, professionally certified, or
+a deployment authorization. No React or TypeScript frontend is included here.
+Any separately hosted frontend is an external component with its own source and
+deployment evidence.
 
-A normal language model can create a polished quotation while silently carrying forward a wrong total, an unsupported assumption, a missing approval, or a compliance conflict. QuoteProof lets GPT-5.6 draft and analyse the request, but it does not let the model approve its own work.
+## Safe demonstration path
 
-**GPT-5.6 generates. RIF challenges. Deterministic controls decide.**
-
-[Open the live demo](https://quoteproof-demo.wernhervonschrader.chatgpt.site)
-
-## The problem it solves
-
-An AI-generated offer may look complete and still create financial, contractual, compliance, or reputational damage. RAG alone does not solve this: retrieving a policy does not prove that the model used it correctly, surfaced every material uncertainty, or respected the final decision boundary.
-
-QuoteProof therefore separates three responsibilities that are often collapsed into one model call:
-
-| Responsibility | Owner | Authority |
-| --- | --- | --- |
-| Draft a structured quotation | GPT-5.6 | May propose |
-| Explain facts, assumptions, constraints, contradictions, uncertainty, and options | GPT-5.6 + RIF contract | Advisory only |
-| Validate evidence and apply commercial controls | Deterministic code | Sole release authority |
-
-The result is one of three explicit outcomes:
-
-- **PASS** — all configured controls passed;
-- **REQUIRES HUMAN REVIEW** — a material uncertainty or approval requirement needs an authorised person;
-- **BLOCKED** — at least one hard control failed.
-
-A review finding can never override a blocking finding, and model output can never grant PASS.
-
-## What happens in a real run
-
-A user enters a sales request in natural language. QuoteProof then:
-
-1. asks GPT-5.6 for a schema-validated quotation draft;
-2. calculates financial totals deterministically instead of trusting generated arithmetic;
-3. retrieves approved, versioned policy cards;
-4. creates a compact, evidence-linked RIF Reasoning Brief;
-5. validates the model's evidence coverage, assumptions, contradictions, uncertainty, confidence, and abstention route;
-6. runs deterministic quotation, discount, sanctions-fixture, export, and delivery-quality controls;
-7. applies fail-closed precedence: **BLOCKED > HUMAN REVIEW > PASS**;
-8. renders the report from validated state and checks that its prose matches the structured decision.
-
-Every stage emits an audit event.
-
-### Example: why the RIF layer matters
-
-In a live test, GPT-5.6 correctly drafted ten units at EUR 250 with a five-percent discount and QuoteProof calculated the EUR 2,375 net total. The model nevertheless assigned high confidence while material screening evidence remained incomplete.
-
-The RIF validator detected that the confidence exceeded the available evidence strength and routed the quotation to **REQUIRES HUMAN REVIEW**. The model produced useful reasoning, but it could not approve its own confidence.
-
-In the restricted-party and controlled-goods scenario, the same pipeline returned **BLOCKED**. The softer reasoning-review finding could not weaken the sanctions and export-control blocks.
-
-## Why this is different from “LLM + RAG”
-
-| Conventional pattern | QuoteProof |
-| --- | --- |
-| Retrieved text is inserted into a prompt | Retrieved policy cards have IDs and versions |
-| The model explains its own answer | A separate validator checks the reasoning contract |
-| Confidence is accepted as generated | Confidence is checked against evidence coverage |
-| Prose becomes the decision | Structured state is authoritative |
-| The model can effectively approve its own output | Deterministic controls alone own release authority |
-| Failures may degrade silently | Missing or invalid reasoning fails closed to human review |
-| Audit is added afterwards | Every graph node emits an audit event |
-
-This is auditable decision support, not private chain-of-thought. QuoteProof stores the reviewable decision record needed by a user, authorised reviewer, or auditor.
-
-## Judge path — about two minutes
-
-The prepared scenarios are public and require no OpenAI call.
-
-1. Open the [live demo](https://quoteproof-demo.wernhervonschrader.chatgpt.site).
-2. Select **PASS**, **HUMAN REVIEW**, and **BLOCKED**.
-3. Compare the findings, policy evidence, gate precedence, and nine-step audit trail.
-4. Enter the jury access code supplied privately in the Devpost testing instructions.
-5. Select **Generate AI draft** to run the live GPT-5.6 path.
-6. Inspect the structured quote, RIF Reasoning Brief, reasoning validation, deterministic findings, and final decision.
-
-## Architecture
+The three packaged scenarios are synthetic, deterministic, and make no OpenAI
+request:
 
 ```text
-Sales request
-    ↓
-GPT-5.6 structured draft
-    ↓
-Deterministic total calculation
-    ↓
-Read-only ERP snapshot (any ERP, via tenant profile)
-    ↓
-Versioned policy retrieval
-    ↓
-RIF evidence-linked reasoning brief
-    ↓
-RIF contract validation
-    ↓
-Deterministic commercial controls
-    ↓
-PASS · REQUIRES HUMAN REVIEW · BLOCKED
-    ↓
-Report-integrity check + audit trail
+POST /review/pass     -> PASS
+POST /review/review   -> REQUIRES_HUMAN_REVIEW
+POST /review/blocked  -> BLOCKED
 ```
 
-The implementation uses the OpenAI Responses API, FastAPI, Pydantic, LangGraph, TypeScript, and React.
+`PASS` means only that the supplied synthetic quotation passed the configured
+demo rules. The restricted-party, export, and quality data are fixtures. They
+cannot provide sanctions clearance, export authorization, supplier evidence,
+legal advice, certification, or human approval.
 
-## Gate 1 scope
+Every pipeline node emits an audit event into the API response. QuoteProof does
+not persist that response, provide append-only storage, or make the audit trail
+tamper-evident.
 
-The Build Week MVP includes:
+## Decision boundary
 
-- three prepared quotation scenarios;
-- optional live server-side GPT-5.6 drafting;
-- deterministic required-field, currency, arithmetic, and discount checks;
-- controlled policy retrieval for simulated sanctions, foreign-trade, and batch-purity checks;
-- evidence-linked governed reasoning;
-- fail-closed reasoning validation;
-- explicit PASS, REQUIRES HUMAN REVIEW, and BLOCKED outcomes;
-- report-integrity validation;
-- a nine-event audit trail;
-- repeatable API and regression tests.
+| Stage | Owner | Authority |
+| --- | --- | --- |
+| Structured draft | optional OpenAI model | proposal only |
+| Evidence-linked reasoning brief | optional OpenAI model | advisory only |
+| ERP snapshot | read-only adapter selected by the tenant profile | evidence only |
+| Schema and reasoning validation | deterministic Python | may add review/block findings |
+| Commercial fixture controls | deterministic Python | sole gate authority |
+| Human acceptance | authorized person outside QuoteProof | not represented by model output |
 
-## Works with any ERP
+Gate priority is deterministic: `BLOCKED > REQUIRES_HUMAN_REVIEW > PASS`.
+A report-integrity failure is conservatively converted to `BLOCKED`. Model text
+cannot remove a finding, grant `PASS`, or impersonate a human decision.
 
-Every customer-specific rule lives in a **tenant profile** (`profiles/*.toml`),
-not in code: currencies, discount authority, price tolerances, minimum margin,
-forbidden outbound terms, the restricted-party source and the ERP connection.
-Each rule can carry its provenance; an unconfirmed **placeholder** still runs,
-but sends every quotation that relies on it to human review.
+## Tenant profiles and ERP evidence
 
-QuoteProof reads from the ERP and never writes to it. Adapters included:
+Customer-specific rules live in a **tenant profile** (TOML), not in code:
+currencies, discount authority, price tolerances, minimum margin, forbidden
+outbound terms, the restricted-party source and the ERP connection. Each rule
+can carry its provenance; an unconfirmed **placeholder** still runs, but sends
+every quotation that relies on it to human review.
 
-- **`sql`** – any ERP whose data tier is a SQL database (MS SQL Server, Oracle,
-  PostgreSQL, MySQL/MariaDB, DB2, …), including undocumented three-tier
-  systems. Lookups are parameterised `SELECT` statements and column maps in the
-  profile; anything that is not read-only is rejected when the profile loads.
-- **`static`** – JSON exports for pilots and demos.
-- **your own** – Odoo, SAP OData, Business Central and others through
-  `register_adapter`, three methods each.
+Built-in profiles ship in `src/quoteproof/data/profiles/`: `default` (the demo
+rules, no ERP), `demo-erp` (synthetic ERP export) and `example-sql-3tier` (a
+template). Select one with `QUOTEPROOF_TENANT_PROFILE`. Keep real customer
+profiles **outside this repository** and point `QUOTEPROOF_TENANT_PROFILE_DIR`
+at their folder. `QUOTEPROOF_PROFILE` stays the runtime profile
+(`production` or `development`) and is unrelated.
+
+QuoteProof reads from an ERP and never writes to it:
+
+- `sql`: any ERP whose data tier is a SQL database, including undocumented
+  three-tier systems, through a DB-API 2.0 driver. Lookups are parameterised
+  `SELECT` statements and column maps in the profile; anything that is not
+  read-only is rejected when the profile loads. The connection string comes
+  only from an environment variable.
+- `static`: JSON exports for pilots and demos.
+- your own adapter through `register_adapter`, three methods each.
 
 With ERP evidence, QuoteProof also checks price floors, list-price deviation,
-blocked customers and items, credit holds and the ERP's export flags. Without
-it, a profile that requires the ERP fails closed to human review.
+blocked customers and items, credit holds and the ERP's export flags. An
+unreachable or ambiguous ERP never passes; it routes to human review.
+Independently of the ERP, it checks the customer-facing document for internal
+pricing language, internal cost figures and other customers' names; treats
+counter-offers as numbered revisions ("the margin moved" when the price drops
+for an unchanged scope); and binds every approval to a `decision_basis_hash`,
+so an approval lapses as soon as anything material changes.
 
-Independently of the ERP, it checks the **customer-facing document** for
-internal pricing language, internal cost figures and other customers' names;
-treats **counter-offers as numbered revisions** ("the margin moved" when the
-price drops for an unchanged scope); and binds every **approval to a
-decision-basis hash**, so a yes lapses as soon as anything material changes.
-
-See [ERP_INTEGRATION.md](docs/ERP_INTEGRATION.md) for setup and the full list
-of controls.
-
-## Drafting and arithmetic contract
-
-The sales request supplies line items, unit prices, and an optional discount.
-
-If it does not state a net total, QuoteProof calculates the value deterministically and returns `net_total_source: "calculated"`. If the request explicitly states a total, QuoteProof preserves it as comparison evidence and returns `net_total_source: "declared"`. A mismatch with the deterministic calculation is blocked.
-
-This separates normal quotation creation from intentional arithmetic-tampering tests.
-
-## How Codex and GPT-5.6 were used
-
-QuoteProof was built during OpenAI Build Week with Codex as the implementation agent. Codex helped:
-
-- translate the product idea into the FastAPI and LangGraph architecture;
-- implement the English demo UI and server-side OpenAI integration;
-- add the RIF reasoning-governance layer;
-- diagnose and repair the net-total contract;
-- harden schema validation, secret handling, CORS, and fail-closed errors;
-- write regression tests and prepare the deployment;
-- document the boundary between model reasoning and release authority.
-
-The product and governance decisions remained human-owned: the model must not approve itself, JSON state is authoritative, hard blocks take precedence, and simulated compliance data must never be presented as production clearance.
-
-GPT-5.6 is used at runtime only for probabilistic drafting and the advisory Reasoning Brief. It identifies facts, assumptions, constraints, contradictions, uncertainties, options, and a recommended next action. RIF validates that output before deterministic controls make the final decision.
-
-## Run locally
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[dev]'
-pytest
-uvicorn quoteproof.api:app --reload
+```text
+GET  /profile          -> active tenant profile, without connection details
+POST /review/revision  -> {quote, previous?, approval?}
 ```
 
-Select a tenant profile with `QUOTEPROOF_PROFILE` (default: `default`), e.g.
-`QUOTEPROOF_PROFILE=demo-erp` for the ERP-backed demo, and check a profile and
-its ERP connection with `python -m quoteproof.check_profile <profile>`.
+`python -m quoteproof.check_profile <profile> --sku <item>` verifies a profile
+and its ERP connection during onboarding. Setup steps and the full list of
+controls: [docs/ERP_INTEGRATION.md](docs/ERP_INTEGRATION.md).
 
-Open `http://127.0.0.1:8000/docs` and run:
+## Live OpenAI path
 
-- `POST /review/pass`
-- `POST /review/review`
-- `POST /review/blocked`
-- `POST /review/revision` — a revised quotation with its previous version and prior approval
-- `GET /profile` — the active tenant profile, without connection details
-- `POST /draft-and-review` — requires server-side `OPENAI_API_KEY` and `QUOTEPROOF_DEMO_KEY`
+`POST /draft-and-review` is disabled by default. Adding an API key does not
+enable it. Request-time order is:
 
-## Security boundary
+```text
+configuration -> enabled -> kill switch -> access -> distributed usage guard
+-> input validation -> OpenAI secret resolution -> bounded provider call
+-> sanitized response
+```
 
-`OPENAI_API_KEY` is read only by the server-side draft endpoint and must never use a `NEXT_PUBLIC_` prefix.
+This release candidate provides a deny-all usage guard because no persistent,
+distributed rate/quota/budget service has been selected. An in-memory limiter
+would not protect a multi-instance serverless deployment. The route remains
+fail-closed until an approved adapter and deployment evidence exist.
 
-The live endpoint additionally requires `X-QuoteProof-Demo-Key`, validated against the server-side `QUOTEPROOF_DEMO_KEY`. The disposable jury code is supplied privately, is not embedded in the frontend, and protects API budget without requiring an OpenAI login. Prepared deterministic scenarios remain public.
+No regular test or CI job uses OpenAI credentials or makes a live provider
+call. Live smoke tests are separately authorized operator work and are not a
+release-readiness prerequisite.
 
-The default CORS policy permits only the QuoteProof demo origin.
+## Install from the lockfile
 
-## Scope and limitations
+Supported versions are CPython 3.11, 3.12, and 3.13. Install `uv` 0.12.6, then:
 
-QuoteProof is a focused Build Week MVP. It deliberately does **not** claim:
+```bash
+uv sync --frozen --dev
+uv run pytest -q --cov=quoteproof --cov-branch --cov-report=term-missing
+uv run uvicorn quoteproof.api:app --reload
+```
 
-- live EU, UN, US, or UK sanctions-list screening;
-- legal export-control clearance;
-- general hallucination prevention;
-- complete RIF or RRS conformance;
-- production certification or readiness.
+Open `http://127.0.0.1:8000/docs`. To use a local HTTP browser origin, set the
+explicit development profile and origin; production configuration rejects HTTP,
+wildcards, credentials in origins, paths, queries, and fragments.
 
-Restricted-party data is an explicit simulation fixture. These boundaries are part of the product: a reliable system must make clear not only what it knows, but also what it cannot safely decide.
+```bash
+QUOTEPROOF_PROFILE=development \
+QUOTEPROOF_ALLOWED_ORIGINS=http://127.0.0.1:3000 \
+uv run uvicorn quoteproof.api:app --reload
+```
 
-For the detailed governance rationale, see [RIF_GOVERNANCE.md](docs/RIF_GOVERNANCE.md).
+Example deterministic requests:
+
+```bash
+curl -X POST http://127.0.0.1:8000/review/pass
+curl -X POST http://127.0.0.1:8000/review/review
+curl -X POST http://127.0.0.1:8000/review/blocked
+```
+
+Or review a synthetic structured payload:
+
+```bash
+curl -X POST http://127.0.0.1:8000/review \
+  -H 'Content-Type: application/json' \
+  --data-binary @src/quoteproof/data/demo_cases/pass.json
+```
+
+## Build and verification
+
+The CI contract in `.github/workflows/release-ci.yml` runs on pull requests and
+`main`. It checks lock consistency, formatting, lint, strict typing, tests,
+branch coverage (minimum 85%), Bandit, dependency vulnerabilities, tracked
+credential files, Detect-secrets, full-history Gitleaks, wheel/sdist build,
+clean installation from locked dependencies, CycloneDX SBOM generation, and
+SHA-256 hashes. Mandatory jobs have no `continue-on-error` path.
+
+Repository checks are not production, security, privacy, legal, regulatory, or
+organizational approval. See:
+
+- [Security boundary](SECURITY.md)
+- [Privacy and data flow](docs/PRIVACY_AND_DATA_FLOW.md)
+- [Threat model](docs/THREAT_MODEL.md)
+- [Release checklist](docs/RELEASE_CHECKLIST.md)
+- [Branch-protection recommendation](docs/BRANCH_PROTECTION.md)
+- [Manual release decisions](docs/MANUAL_RELEASE_DECISIONS.md)
+- [Remote-ref cleanup plan](docs/REF_CLEANUP_PLAN.md)
+- [Release-readiness design](docs/RELEASE_READINESS_DESIGN.md)
+- [RIF demonstration scope](docs/RIF_GOVERNANCE.md)
+
+## Version and release status
+
+`0.1.0` is the prepared initial open-source release version. The remote branch name
+`snapshot/hackathon-submission-v1.0` is historical and is not a SemVer release,
+tag, or proof that version 1.0 was published. See [CHANGELOG.md](CHANGELOG.md).
+
+Publication remains conditional on the exact-SHA release gates. Existing history,
+author email addresses, and remote branches are accepted for this release; no
+history or ref cleanup is implied.
+
+## License, RIF scope, and marks
+
+QuoteProof is licensed under the [Apache License 2.0](LICENSE). The license covers
+the materials contained in this repository, including its concrete
+QuoteProof-specific RIF implementation and documentation. It does not license
+the complete Reliable Intelligence Framework, Context Assurance, or any other
+private project or material. See [NOTICE](NOTICE) and the
+[RIF scope](docs/RIF_GOVERNANCE.md).
+
+As stated in Apache License 2.0 section 6, the license does not grant trademark
+rights in the names `QuoteProof` or `Reliable Intelligence Framework` or their
+branding, except for customary attribution and origin descriptions.
+
+## Human and AI contribution
+
+QuoteProof was built during OpenAI Build Week with Codex assisting implementation,
+testing, hardening, and documentation. GPT-5.6 is the configured optional runtime
+model for structured drafting and an advisory reasoning brief. Human-owned
+contracts remain: deterministic gates own the result; synthetic compliance data
+must be labeled; models cannot approve their own work; and publication requires
+separate human authorization.
