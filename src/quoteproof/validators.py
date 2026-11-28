@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import cast
 
 from .models import BusinessRules, Finding, FindingEffect, PolicyDocument, QuoteDraft
 
@@ -74,9 +75,7 @@ def validate_discount(quote: QuoteDraft, rules: BusinessRules) -> list[Finding]:
     ]
 
 
-def validate_sanctions(
-    quote: QuoteDraft, policies: list[PolicyDocument]
-) -> list[Finding]:
+def validate_sanctions(quote: QuoteDraft, policies: list[PolicyDocument]) -> list[Finding]:
     policy = next((item for item in policies if item.id == "POL-SANCTIONS-001"), None)
     if policy is None or quote.customer is None:
         return [
@@ -88,7 +87,8 @@ def validate_sanctions(
                 policy_id="POL-SANCTIONS-001",
             )
         ]
-    restricted = [str(name).casefold() for name in policy.data.get("restricted_entities", [])]
+    restricted_data = cast(list[object], policy.data.get("restricted_entities", []))
+    restricted = [str(name).casefold() for name in restricted_data]
     if quote.customer.casefold() not in restricted:
         return []
     return [

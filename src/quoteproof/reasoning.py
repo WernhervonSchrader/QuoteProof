@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import json
-import os
 from typing import Protocol
 
-from openai import OpenAI
-
+from .drafting import ResponsesClient
 from .models import (
     Finding,
     FindingEffect,
@@ -18,7 +16,6 @@ from .models import (
     ReasoningValidation,
     ReasoningValidationStatus,
 )
-
 
 REASONING_POLICY_ID = "POL-RIF-REASONING-001"
 
@@ -38,9 +35,15 @@ class ReasoningAnalyst(Protocol):
 class OpenAIReasoningAnalyst:
     """Produces evidence-linked decision support without release authority."""
 
-    def __init__(self, client=None, model: str | None = None) -> None:
-        self.model = model or os.getenv("OPENAI_MODEL", "gpt-5.6-terra")
-        self.client = client or OpenAI()
+    def __init__(
+        self,
+        client: ResponsesClient,
+        model: str,
+        max_output_tokens: int = 1_200,
+    ) -> None:
+        self.model = model
+        self.client = client
+        self.max_output_tokens = max_output_tokens
 
     def analyse(
         self,
@@ -63,6 +66,7 @@ class OpenAIReasoningAnalyst:
         ]
         response = self.client.responses.parse(
             model=self.model,
+            max_output_tokens=self.max_output_tokens,
             input=[
                 {
                     "role": "developer",
@@ -94,7 +98,7 @@ class OpenAIReasoningAnalyst:
         brief = response.output_parsed
         if brief is None:
             raise ReasoningError("The model did not return a governed reasoning brief.")
-        return brief
+        return ReasoningBrief.model_validate(brief)
 
 
 def _allowed_evidence_ids(
@@ -133,7 +137,9 @@ def validate_reasoning_brief(
     if not brief.facts:
         issues.append("The reasoning brief contains no evidence-linked facts.")
     if any(not ids or not set(ids) <= allowed for ids in evidence_sets):
-        issues.append("One or more reasoning statements use missing or unapproved evidence IDs.")
+        issues.append(
+            "One or more reasoning statements use missing or unapproved evidence IDs."
+        )
     if any(
         item.materiality in {ReasoningMateriality.HIGH, ReasoningMateriality.CRITICAL}
         for item in brief.assumptions
@@ -159,6 +165,21 @@ def validate_reasoning_brief(
         brief.assumptions or brief.uncertainties
     ):
         issues.append("High confidence exceeds the available evidence strength.")
+    advisory_text = " ".join(
+        [brief.mission, brief.recommended_next_action]
+        + [option.title for option in brief.options]
+    ).casefold()
+    prohibited_authority_claims = (
+        "approved by human",
+        "human approved",
+        "sanctions cleared",
+        "sanctions clearance",
+        "export cleared",
+        "export clearance granted",
+        "legal approval granted",
+    )
+    if any(claim in advisory_text for claim in prohibited_authority_claims):
+        issues.append("Advisory output attempted to assert external or human approval.")
 
     status = (
         ReasoningValidationStatus.REQUIRES_HUMAN_REVIEW

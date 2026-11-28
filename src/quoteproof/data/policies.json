@@ -11,31 +11,29 @@
     "title": "Discount approval authority",
     "version": "2026-07-demo",
     "tags": ["approval"],
-    "content": "Discounts above ten percent require approval by an authorised human reviewer."
+    "content": "Discounts above ten percent require review by an authorised human. This fixture never records or grants that approval."
   },
   {
     "id": "POL-SANCTIONS-001",
     "title": "Restricted-party screening fixture",
     "version": "2026-07-demo",
     "tags": ["sanctions"],
-    "content": "Every quotation must be screened against the approved restricted-party source. This Build Week fixture is simulated and is not a live sanctions list.",
-    "data": {
-      "restricted_entities": ["Restricted Entity Example Ltd"]
-    }
+    "content": "This synthetic fixture demonstrates exact-match routing only. It is not a current restricted-party source and cannot provide sanctions clearance.",
+    "data": {"restricted_entities": ["Restricted Entity Example Ltd"]}
   },
   {
     "id": "POL-EXPORT-001",
-    "title": "Foreign-trade and export authorisation",
+    "title": "Foreign-trade and export authorisation fixture",
     "version": "2026-07-demo",
     "tags": ["export"],
-    "content": "Controlled goods must not be released without a documented export licence or authorised release. Country and destination restrictions require current authoritative data in production."
+    "content": "This synthetic rule demonstrates a missing-document block. It is not legal advice, authoritative country data, or export clearance."
   },
   {
     "id": "POL-QUALITY-001",
-    "title": "Batch-pure delivery requirement",
+    "title": "Batch-pure delivery requirement fixture",
     "version": "2026-07-demo",
     "tags": ["quality"],
-    "content": "If batch-pure delivery is contractually required, supplier confirmation must be documented before release. Explicit inability to comply blocks the quotation."
+    "content": "This synthetic rule demonstrates routing when supplier confirmation is absent. It is not supplier evidence or product certification."
   },
   {
     "id": "POL-RIF-REASONING-001",

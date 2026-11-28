@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from typing import Any
+
 from langgraph.graph import END, StateGraph
 from openai import OpenAIError
 
+from .knowledge import retrieve_policies
 from .models import (
     AuditEvent,
     BusinessRules,
@@ -11,11 +14,10 @@ from .models import (
     GateDecision,
     QuoteDraft,
     QuoteState,
-    ReviewResult,
     ReasoningValidation,
     ReasoningValidationStatus,
+    ReviewResult,
 )
-from .knowledge import retrieve_policies
 from .reasoning import (
     REASONING_POLICY_ID,
     ReasoningAnalyst,
@@ -23,12 +25,12 @@ from .reasoning import (
     validate_reasoning_brief,
 )
 from .validators import (
+    validate_batch_purity,
     validate_currency,
     validate_discount,
+    validate_export_control,
     validate_required_fields,
     validate_sanctions,
-    validate_export_control,
-    validate_batch_purity,
     validate_total,
 )
 
@@ -49,13 +51,13 @@ class QuoteReviewPipeline:
         self.reasoner = reasoner
         self.graph = self._build()
 
-    def ingest(self, state: QuoteState) -> dict:
+    def ingest(self, state: QuoteState) -> dict[str, object]:
         audit = state["audit_trail"] + [
-            _event("ingest", "accept_structured_quote", "OK", state["quote"].quote_id)
+            _event("ingest", "accept_structured_quote", "OK", "accepted")
         ]
         return {"audit_trail": audit}
 
-    def retrieve_knowledge(self, state: QuoteState) -> dict:
+    def retrieve_knowledge(self, state: QuoteState) -> dict[str, object]:
         policies = retrieve_policies(state["quote"])
         audit = state["audit_trail"] + [
             _event(
@@ -67,10 +69,12 @@ class QuoteReviewPipeline:
         ]
         return {"retrieved_policies": policies, "audit_trail": audit}
 
-    def reason(self, state: QuoteState) -> dict:
+    def reason(self, state: QuoteState) -> dict[str, object]:
         if self.reasoner is None:
             audit = state["audit_trail"] + [
-                _event("reason", "generate_governed_reasoning_brief", "SKIPPED", "not_configured")
+                _event(
+                    "reason", "generate_governed_reasoning_brief", "SKIPPED", "not_configured"
+                )
             ]
             return {"audit_trail": audit}
         try:
@@ -101,7 +105,7 @@ class QuoteReviewPipeline:
         ]
         return {"reasoning_brief": brief, "audit_trail": audit}
 
-    def validate_reasoning(self, state: QuoteState) -> dict:
+    def validate_reasoning(self, state: QuoteState) -> dict[str, object]:
         if state["reasoning_brief"] is not None:
             validation, findings = validate_reasoning_brief(
                 state["reasoning_brief"],
@@ -144,7 +148,7 @@ class QuoteReviewPipeline:
             "audit_trail": audit,
         }
 
-    def validate(self, state: QuoteState) -> dict:
+    def validate(self, state: QuoteState) -> dict[str, object]:
         quote, rules = state["quote"], state["rules"]
         findings = [
             *state["findings"],
@@ -166,7 +170,7 @@ class QuoteReviewPipeline:
         ]
         return {"findings": findings, "audit_trail": audit}
 
-    def decide_gate(self, state: QuoteState) -> dict:
+    def decide_gate(self, state: QuoteState) -> dict[str, object]:
         effects = {finding.effect for finding in state["findings"]}
         if FindingEffect.BLOCK in effects:
             gate = GateDecision.BLOCKED
@@ -179,9 +183,20 @@ class QuoteReviewPipeline:
         ]
         return {"gate": gate, "audit_trail": audit}
 
-    def generate_report(self, state: QuoteState) -> dict:
+    def generate_report(self, state: QuoteState) -> dict[str, object]:
         gate = state["gate"]
-        assert gate is not None
+        if gate is None:
+            gate = GateDecision.BLOCKED
+            internal_finding = Finding(
+                code="QP-GATE-MISSING-001",
+                effect=FindingEffect.BLOCK,
+                message="Gate state was missing; the response is conservatively blocked.",
+                field="gate",
+                expected="deterministic gate decision",
+                actual="missing",
+                policy_id="POL-QUOTE-001",
+            )
+            state = {**state, "findings": [*state["findings"], internal_finding]}
         if gate is GateDecision.PASS:
             summary = "Quotation passed all configured deterministic controls."
         elif gate is GateDecision.REQUIRES_HUMAN_REVIEW:
@@ -191,10 +206,17 @@ class QuoteReviewPipeline:
         audit = state["audit_trail"] + [
             _event("report", "render_summary_from_gate", "OK", gate.value)
         ]
-        return {"summary": summary, "audit_trail": audit}
+        return {
+            "gate": gate,
+            "findings": state["findings"],
+            "summary": summary,
+            "audit_trail": audit,
+        }
 
-    def validate_report_integrity(self, state: QuoteState) -> dict:
+    def validate_report_integrity(self, state: QuoteState) -> dict[str, object]:
         gate = state["gate"]
+        if gate is None:
+            gate = GateDecision.BLOCKED
         expected_phrase = {
             GateDecision.PASS: "passed",
             GateDecision.REQUIRES_HUMAN_REVIEW: "human review",
@@ -209,9 +231,26 @@ class QuoteReviewPipeline:
                 gate.value,
             )
         ]
-        return {"report_integrity": integrity, "audit_trail": audit}
+        if integrity:
+            return {"report_integrity": True, "audit_trail": audit}
+        integrity_finding = Finding(
+            code="QP-REPORT-INTEGRITY-001",
+            effect=FindingEffect.BLOCK,
+            message="Report integrity failed; the response is conservatively blocked.",
+            field="summary",
+            expected="summary consistent with the structured gate",
+            actual="integrity check failed",
+            policy_id="POL-QUOTE-001",
+        )
+        return {
+            "report_integrity": False,
+            "gate": GateDecision.BLOCKED,
+            "summary": "Quotation is blocked because report integrity failed.",
+            "findings": [*state["findings"], integrity_finding],
+            "audit_trail": audit,
+        }
 
-    def _build(self):
+    def _build(self) -> Any:
         graph = StateGraph(QuoteState)
         graph.add_node("ingest", self.ingest)
         graph.add_node("retrieve_knowledge", self.retrieve_knowledge)
@@ -251,4 +290,7 @@ class QuoteReviewPipeline:
             "reasoning_error": None,
         }
         result = self.graph.invoke(initial)
-        return ReviewResult.model_validate(result)
+        response_fields = {
+            field: result[field] for field in ReviewResult.model_fields if field in result
+        }
+        return ReviewResult.model_validate(response_fields)

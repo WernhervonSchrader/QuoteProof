@@ -72,3 +72,35 @@ def test_simulated_sanctions_match_blocks() -> None:
 def test_missing_export_authorisation_blocks_controlled_goods() -> None:
     result = QuoteReviewPipeline().run(load_scenario("blocked"))
     assert "QP-EXPORT-001" in {finding.code for finding in result.findings}
+
+
+def test_synthetic_fixtures_never_claim_real_compliance_clearance() -> None:
+    result = QuoteReviewPipeline().run(load_scenario("pass"))
+
+    assert result.decision_scope == "synthetic_demo_only"
+    assert "not sanctions" in result.disclaimer
+    assert "human approval" in result.disclaimer
+
+
+def test_audit_trail_does_not_echo_quote_or_customer_identifiers() -> None:
+    quote = load_scenario("pass")
+    result = QuoteReviewPipeline().run(quote)
+    serialized = " ".join(event.model_dump_json() for event in result.audit_trail)
+
+    assert quote.quote_id not in serialized
+    assert quote.customer not in serialized
+
+
+def test_report_integrity_failure_is_conservatively_blocked() -> None:
+    class TamperedReportPipeline(QuoteReviewPipeline):
+        def generate_report(self, state):
+            result = super().generate_report(state)
+            result["summary"] = "Quotation passed."
+            return result
+
+    result = TamperedReportPipeline().run(load_scenario("blocked"))
+
+    assert result.report_integrity is False
+    assert result.gate is GateDecision.BLOCKED
+    assert result.summary == "Quotation is blocked because report integrity failed."
+    assert "QP-REPORT-INTEGRITY-001" in {finding.code for finding in result.findings}
